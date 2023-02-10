@@ -323,6 +323,10 @@ void pollController(device *dev, SDL_GameController *controller) {
 			dev->controlData[9] = 0xFF;
 		}
 
+		if (getButton(controller, padbinds.leftSpin) && getButton(controller, padbinds.rightSpin)) {
+			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter
+		}
+
 		// sticks
 		getStick(controller, padbinds.camera, &(dev->controlData[4]), &(dev->controlData[5]));
 		getStick(controller, padbinds.movement, &(dev->controlData[6]), &(dev->controlData[7]));
@@ -614,6 +618,8 @@ void __cdecl processController(device *dev) {
 	dev->controlData[6] = 127;
 	dev->controlData[7] = 127;
 
+	dev->controlData[20] = 0;
+
 	//if (!isKeyboardTyping()) {
 		pollKeyboard(dev);
 	//}
@@ -788,6 +794,227 @@ void stub() {
 	printf("STUB!");
 }
 
+void __fastcall rolling_friction_wrapper(void *comp) {
+	void (__fastcall *rolling_friction)(void *) = (void *)0x005c8ca0;
+
+	int compAddr = (int)comp;
+	float friction = *(float *)(compAddr + 0x678);
+	void *padAddr = *(void **)(compAddr + 0x1910);
+
+	//printf("ROLLING FRICTION: %f\n", friction);
+	printf("CONTROL PAD ADDR: 0x%08x\n", padAddr);
+
+	rolling_friction(comp);
+}
+	//patchCall((void *)(0x005d471c), rolling_friction_wrapper);
+	//patchByte((void *)(0x005d471c), 0xe9);
+
+#define spine_buttons_asm(SUCCESS, FAIL) __asm {	\
+	__asm push eax	\
+	__asm push ecx	\
+	__asm mov eax, comp	\
+	__asm mov ecx, dword ptr [eax + 0x1910]	\
+	__asm mov al, byte ptr [ecx + 0x120]	/* R2 */	\
+	__asm test al, al	\
+	__asm jne success	\
+	__asm mov al, byte ptr [ecx + 0xc0]	/* L2 */	\
+	__asm test al, al	\
+	__asm jne success	\
+	\
+	__asm pop ecx	\
+	__asm pop eax	\
+	__asm mov esp, ebp	\
+	__asm pop ebp	\
+	__asm push FAIL	\
+	__asm ret 0x08	\
+	\
+__asm success:	\
+	__asm pop ecx	\
+	__asm pop eax	\
+	__asm mov esp, ebp	\
+	__asm pop ebp	\
+	__asm push SUCCESS	\
+	__asm ret 0x08	\
+}
+
+#define not_spine_buttons_asm(SUCCESS, FAIL) __asm {	\
+	__asm push eax	\
+	__asm push ecx	\
+	__asm mov eax, comp	\
+	__asm mov ecx, dword ptr [eax + 0x1910]	\
+	__asm mov al, byte ptr [ecx + 0x120]	/* R2 */	\
+	__asm test al, al	\
+	__asm jne failure	\
+	__asm mov al, byte ptr [ecx + 0xc0]	/* L2 */	\
+	__asm test al, al	\
+	__asm jne failure	\
+	\
+	__asm pop ecx	\
+	__asm pop eax	\
+	__asm mov esp, ebp	\
+	__asm pop ebp	\
+	__asm push SUCCESS	\
+	__asm ret 0x08	\
+	\
+__asm failure:	\
+	__asm pop ecx	\
+	__asm pop eax	\
+	__asm mov esp, ebp	\
+	__asm pop ebp	\
+	__asm push FAIL	\
+	__asm ret 0x08	\
+}
+
+void __stdcall in_air_to_break(void *comp) {
+	spine_buttons_asm(0x005dff5f, 0x005dff55);
+}
+
+void break_vert(void *comp) {
+	not_spine_buttons_asm(0x005da2f0, 0x005da306);
+}
+
+void other_break_vert(void *comp) {
+	not_spine_buttons_asm(0x005da31e, 0x005da561);
+}
+
+void lip_jump(void *comp) {
+	spine_buttons_asm(0x005c9cbd, 0x005c9d41)
+}
+
+void air_recovery(void *comp) {
+	spine_buttons_asm(0x005df984, 0x005df98b);
+}
+
+void ground_to_air(void *comp) {
+	not_spine_buttons_asm(0x005dea3c, 0x005dea45);
+}
+
+void ground_to_air_acid_drop(void *comp) {
+	not_spine_buttons_asm(0x005df02f, 0x005defff);
+}
+
+void also_ground_to_air_acid_drop(void *comp) {
+	spine_buttons_asm(0x005df3a5, 0x005df7af);
+}
+
+void __stdcall in_air_acid_drop(void *comp) {
+	not_spine_buttons_asm(0x005e0d19, 0x005e0d23);
+}
+
+void walk_acid_drop(void *comp) {
+	__asm {
+		push eax
+		push ecx
+		mov eax, comp
+		mov ecx, dword ptr [eax + 0x17cc]
+		mov al, byte ptr [ecx + 0x120]	/* R2 */
+		test al, al
+		jne success
+		mov al, byte ptr [ecx + 0xc0]	/* L2 */
+		test al, al
+		jne success
+
+		pop ecx
+		pop eax
+		mov esp, ebp
+		pop ebp
+		push 0x005fcdc7	/* false */
+		ret 0x08
+
+	success:
+		pop ecx
+		pop eax
+		mov esp, ebp
+		pop ebp
+		push 0x005fcd0a	/* true */
+		ret 0x08
+	}
+}
+
+void patchPs2Buttons() {
+	patchByte((void *)(0x0046ee86 + 2), 0x05);	// change PC platform to gamecube.  this just makes it default to ps2 controls
+	//patchByte((void *)(0x0046ef29 + 2), 0x05);	// do ps2 things if xbox
+
+		// in air
+	patchByte((void *)(0x005dff41), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005dff41 + 1), in_air_to_break);
+
+	// break vert
+	patchByte((void *)(0x005da2dc), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005da2dc + 1), break_vert);
+
+	patchByte((void *)(0x005da306), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005da306 + 1), other_break_vert);
+
+	// bike lip check
+	//patchByte((void *)(0x005da32c + 2), 0x00);
+	//patchByte((void *)(0x005da32c + 3), 0x01);
+
+	// lip jump?
+	patchByte((void *)(0x005c9ca1), 0x52);	// PUSH EBX
+	patchCall((void *)(0x005c9ca1 + 1), lip_jump);
+
+	// check side
+	//patchByte((void *)(0x005dad77 + 2), 0xa0);
+	//patchByte((void *)(0x005dad85 + 2), 0x00);
+	//patchByte((void *)(0x005dad85 + 3), 0x01);
+
+	// air recovery
+	patchByte((void *)(0x005df970), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005df970 + 1), air_recovery);
+
+	// bike lean/fast turn
+	//patchByte((void *)(0x005c8b4a + 2), 0xa0);
+	//patchByte((void *)(0x005c8b5d + 2), 0x00);
+	//patchByte((void *)(0x005c8b5d + 3), 0x01);
+
+	// ground-to-air
+	patchByte((void *)(0x005dea28), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005dea28 + 1), ground_to_air);
+
+	// ground-to-air acid drop
+	patchByte((void *)(0x005defeb), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005defeb + 1), ground_to_air_acid_drop);
+
+	// also ground-to-air acid drop
+	patchByte((void *)(0x005df389), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005df389 + 1), also_ground_to_air_acid_drop);
+
+	// acid drop
+	patchByte((void *)(0x005e0d05), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005e0d05 + 1), in_air_acid_drop);
+
+	// walk acid drop
+	patchByte((void *)(0x005fcceb), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005fcceb + 1), walk_acid_drop);
+
+	// bike lip
+	//patchByte((void *)(0x005ce99a + 2), 0x00);
+	//patchByte((void *)(0x005ce99a + 3), 0x01);
+
+	//patchByte((void *)(0x005dc301 + 2), 0x00);
+	//patchByte((void *)(0x005dc301 + 3), 0x01);
+
+	// natas spin
+	//patchByte((void *)(0x005e0f01 + 2), 0xa0);
+	//patchByte((void *)(0x005e0ef7 + 2), 0x00);
+	//patchByte((void *)(0x005e0ef7 + 3), 0x01);
+
+	// stall
+	patchByte((void *)(0x005e0f8e + 2), 0x00);
+	patchByte((void *)(0x005e0f8e + 3), 0x01);
+
+	patchByte((void *)(0x005e2939 + 2), 0x00);
+	patchByte((void *)(0x005e2939 + 3), 0x01);
+
+	// bike fast spin/flip
+	patchByte((void *)(0x005d7d99 + 2), 0xa0);
+
+	// disable spin delay on l1/r1
+	patchNop((void *)(0x005cd230), 2);
+	patchNop((void *)(0x005cd2fb), 2);
+}
+
 void patchInput() {
 	// patch SIO::Device
 	// process
@@ -845,6 +1072,9 @@ void patchInput() {
 
 	// some config call relating to the dinput devices
 	patchNop(0x0054481c, 5);
+
+
+	patchPs2Buttons();
 
 	//patchNop(0x0054310A, 35);	// DirectInput8Create
 	//patchNop(0x0054312d, 8);	// createDevice

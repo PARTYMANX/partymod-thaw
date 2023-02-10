@@ -79,6 +79,7 @@ void loadSettings();
 
 void createSDLWindow() {
 	SDL_Init(SDL_INIT_VIDEO);
+	isWindowed = 1;
 
 	SDL_WindowFlags flags = isWindowed ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
 
@@ -104,7 +105,7 @@ void createSDLWindow() {
 		*resY = 480;
 	}
 
-	window = SDL_CreateWindow("THAW - PARTYMOD", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, *resX, *resY, flags);   // TODO: fullscreen
+	window = SDL_CreateWindow("THAW - PARTYMOD", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, flags);   // TODO: fullscreen
 
 	if (!window) {
 		printf("Failed to create window! Error: %s\n", SDL_GetError());

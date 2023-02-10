@@ -145,6 +145,10 @@ void patchNotCD() {
 	patchByte((void *)(0x00404350 + 5), 0xc3);
 }
 
+void patchHwType() {
+	patchByte(0x006283a5 + 6, 0x05);
+}
+
 __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
 	// Perform actions based on the reason for calling.
 	switch(fdwReason) { 
@@ -163,6 +167,7 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 			//patchCullModeFix();
 			//patchNop(0x0043f037, 6);
 			patchInput();
+			//patchHwType();
 			//patchLoadConfig();
 			//patchScriptHook();
 
