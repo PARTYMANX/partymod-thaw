@@ -59,10 +59,10 @@ typedef struct {
 	uint32_t isValid;
 	uint32_t unk_24;
 	uint8_t controlData[32];	// PS2 format control data
-	uint32_t vibrationData_align[8];
-	uint32_t vibrationData_direct[8];
-	uint32_t vibrationData_max[8];
-	uint32_t vibrationData_oldDirect[8];    // there may be something before this
+	uint8_t vibrationData_align[32];
+	uint8_t vibrationData_direct[32];
+	uint8_t vibrationData_max[32];
+	uint8_t vibrationData_oldDirect[32];    // there may be something before this
 	// 160
 	// 176
 	//uint32_t unk4;
@@ -71,13 +71,13 @@ typedef struct {
 	uint32_t unk5;
 	// 192
 	uint32_t unk6;
+	uint32_t actuatorsDisabled;
+	uint32_t capabilities;
 	uint32_t unk7;
-	uint32_t unk8;
-	uint32_t unk9;
 	// 208
-	uint32_t unk10;
+	uint32_t num_actuators;
+	uint32_t unk8;
 	uint32_t state;
-	uint32_t nextState;
 	uint32_t test;
 	// 224
 	uint32_t index;
@@ -323,8 +323,9 @@ void pollController(device *dev, SDL_GameController *controller) {
 			dev->controlData[9] = 0xFF;
 		}
 
-		if (getButton(controller, padbinds.leftSpin) && getButton(controller, padbinds.rightSpin)) {
-			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter
+		// big hack: bike backwards revert looks for caveman button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
+		if (getButton(controller, padbinds.switchRevert)) {
+			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
 		}
 
 		// sticks
@@ -468,17 +469,135 @@ void pollKeyboard(device *dev) {
 }
 
 // returns 1 if a text entry prompt is on-screen so that keybinds don't interfere with text entry confirmation/cancellation
-int isKeyboardTyping() {
-	void *(__stdcall *getMenuFactorySingleton)(int) = (void *)0x004d12a0;
-	void (*deleteMenuFactorySingleton)() = (void *)0x004d12f0;
-	
-	void *menuFactory = getMenuFactorySingleton(0);
+uint8_t isKeyboardTyping() {
+	uint8_t *keyboard_on_screen = 0x0074fb42;
 
-	int result = *(int *)(((uint8_t *)menuFactory) + 0x154);
-	
-	deleteMenuFactorySingleton();
+	return *keyboard_on_screen;
+}
 
-	return result;
+void do_key_input(SDL_KeyCode key) {
+	void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;
+	void (*key_input_other)(int32_t key, uint32_t param) = (void *)0x0062b4bc;
+	uint8_t *keyboard_on_screen = 0x0074fb42;
+
+	if (!*keyboard_on_screen) {
+		return;
+	}
+
+	int32_t key_out = 0;
+	uint8_t modstate = SDL_GetModState();
+	uint8_t shift = SDL_GetModState() & KMOD_SHIFT;
+	uint8_t caps = SDL_GetModState() & KMOD_CAPS;
+
+	if (key == SDLK_RETURN) {
+		key_out = 0x0d;	// CR
+	} else if (key == SDLK_BACKSPACE) {
+		key_out = 0x08;	// BS
+	} else if (key == SDLK_ESCAPE) {
+		key_out = 0x1b;	// ESC
+	} else if (key == SDLK_SPACE) {
+		key_out = ' ';
+	} else if (key >= SDLK_0 && key <= SDLK_9 && !(modstate & KMOD_SHIFT)) {
+		key_out = key;
+	} else if (key >= SDLK_a && key <= SDLK_z) {
+		key_out = key;
+		if (modstate & (KMOD_SHIFT | KMOD_CAPS)) {
+			key_out -= 0x20;
+		}
+	} else if (key == SDLK_PERIOD) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '>';
+		} else {
+			key_out = '.';
+		}
+	} else if (key == SDLK_COMMA) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '<';
+		} else {
+			key_out = ',';
+		}
+	} else if (key == SDLK_SLASH) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '?';
+		} else {
+			key_out = '/';
+		}
+	} else if (key == SDLK_SEMICOLON) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = ':';
+		} else {
+			key_out = ';';
+		}
+	} else if (key == SDLK_QUOTE) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '\"';
+		} else {
+			key_out = '\'';
+		}
+	} else if (key == SDLK_LEFTBRACKET) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '{';
+		} else {
+			key_out = '[';
+		}
+	} else if (key == SDLK_RIGHTBRACKET) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '}';
+		} else {
+			key_out = ']';
+		}
+	} else if (key == SDLK_BACKSLASH) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '|';
+		} else {
+			key_out = '\\';
+		}
+	} else if (key == SDLK_MINUS) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '_';
+		} else {
+			key_out = '-';
+		}
+	} else if (key == SDLK_EQUALS) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '+';
+		} else {
+			key_out = '=';
+		}
+	} else if (key == SDLK_BACKQUOTE) {
+		if (modstate & KMOD_SHIFT) {
+			key_out = '~';
+		} else {
+			key_out = '`';
+		}
+	} else if (key == SDLK_1 && modstate & KMOD_SHIFT) {
+		key_out = '!';
+	} else if (key == SDLK_2 && modstate & KMOD_SHIFT) {
+		key_out = '@';
+	} else if (key == SDLK_3 && modstate & KMOD_SHIFT) {
+		key_out = '#';
+	} else if (key == SDLK_4 && modstate & KMOD_SHIFT) {
+		key_out = '$';
+	} else if (key == SDLK_5 && modstate & KMOD_SHIFT) {
+		key_out = '%';
+	} else if (key == SDLK_6 && modstate & KMOD_SHIFT) {
+		key_out = '^';
+	} else if (key == SDLK_7 && modstate & KMOD_SHIFT) {
+		key_out = '&';
+	} else if (key == SDLK_8 && modstate & KMOD_SHIFT) {
+		key_out = '*';
+	} else if (key == SDLK_9 && modstate & KMOD_SHIFT) {
+		key_out = '(';
+	} else if (key == SDLK_0 && modstate & KMOD_SHIFT) {
+		key_out = ')';
+	} else {
+		key_out = -1;
+	}
+
+	//printf("TEST!!\n");
+
+	key_input(key_out, 0);
+	//key_input_other(key_out, 0);
 }
 
 void processEvent(SDL_Event *e) {
@@ -501,6 +620,10 @@ void processEvent(SDL_Event *e) {
 		}
 		case SDL_JOYDEVICEADDED:
 			printf("Joystick added: %s\n", SDL_JoystickNameForIndex(e->jdevice.which));
+			return;
+		case SDL_KEYDOWN: 
+			//printf("KEY: %s\n", SDL_GetKeyName(e->key.keysym.sym));
+			do_key_input(e->key.keysym.sym);
 			return;
 		/*case SDL_CONTROLLERBUTTONDOWN:
 		case SDL_CONTROLLERAXISMOTION:
@@ -575,6 +698,13 @@ void __cdecl processController(device *dev) {
 	//printf("Processing Controller %d %d %d!\n", dev->index, dev->slot, dev->port);
 	//printf("TYPE: %d\n", dev->type);
 	//printf("ISPLUGGEDIN: %d\n", dev->isPluggedIn);
+	dev->capabilities = 0x0003;
+	dev->num_actuators = 2;
+	dev->vibrationData_max[0] = 255;
+	dev->vibrationData_max[1] = 255;
+	dev->state = 2;
+	dev->actuatorsDisabled = 0;
+
 	SDL_Event e;
 	while(SDL_PollEvent(&e)) {
 		processEvent(&e);
@@ -620,9 +750,9 @@ void __cdecl processController(device *dev) {
 
 	dev->controlData[20] = 0;
 
-	//if (!isKeyboardTyping()) {
+	if (!isKeyboardTyping()) {
 		pollKeyboard(dev);
-	//}
+	}
 
 	// TODO: maybe smart selection of active controller?
 	if (dev->port == 0) {
@@ -657,6 +787,22 @@ void __cdecl processController(device *dev) {
 	//printf("%08x%08x%08x%08x%08x%08x%08x%08x\n", dev->vibrationData_direct[0], dev->vibrationData_direct[1], dev->vibrationData_direct[2], dev->vibrationData_direct[3], dev->vibrationData_direct[4], dev->vibrationData_direct[5], dev->vibrationData_direct[6], dev->vibrationData_direct[7]);
 	//printf("%08x%08x%08x%08x%08x%08x%08x%08x\n", dev->vibrationData_max[0], dev->vibrationData_max[1], dev->vibrationData_max[2], dev->vibrationData_max[3], dev->vibrationData_max[4], dev->vibrationData_max[5], dev->vibrationData_max[6], dev->vibrationData_max[7]);
 	//printf("\n");
+
+	uint8_t *unk1 = 0x0074fb42;
+	uint8_t *unk2 = 0x00751dc0;
+	uint8_t *unk3 = 0x0074fb43;
+
+	*unk2 = 1;
+	*unk3 = 0;
+
+	//printf("UNKNOWN VALUES: 0x0074fb42: %d, 0x00751dc0: %d, 0x0074fb43: %d\n", *unk1, *unk2, *unk3);
+}
+
+void __cdecl set_actuators(void *empty, uint16_t left, uint16_t right) {
+	//printf("SETTING ACTUATORS: %d %d\n", left, right);
+	for (int i = 0; i < controllerCount; i++) {
+		SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), left, right, 1000);
+	}
 }
 
 void __cdecl acquireController(device *dev) {
@@ -801,8 +947,15 @@ void __fastcall rolling_friction_wrapper(void *comp) {
 	float friction = *(float *)(compAddr + 0x678);
 	void *padAddr = *(void **)(compAddr + 0x1910);
 
+	int paddr = (int) padAddr;
+
+	uint8_t is_on_bike = *(uint8_t *)(compAddr + 0x524);
+
 	//printf("ROLLING FRICTION: %f\n", friction);
 	printf("CONTROL PAD ADDR: 0x%08x\n", padAddr);
+	//printf("ARE WE ON A BIKE: %d\n", is_on_bike);
+	printf("CONTROLS: 0x320: %d, 0x180: %d, 0x1a0: %d, 0x1c0: %d, 0x1e0: %d, 0x200: %d\n", *(uint8_t *)(paddr + 0x320), *(uint8_t *)(paddr + 0x340), *(uint8_t *)(paddr + 0x1a0), *(uint8_t *)(paddr + 0x1c0), *(uint8_t *)(paddr + 0x1e0), *(uint8_t *)(paddr + 0x200));
+	//printf("CONTROLS: 0x220: %d, 0x240: %d, 0x260: %d, 0x280: %d, 0x2a0: %d, 0x2c0: %d, 0x2e0: %d, 0x300: %d\n", *(uint8_t *)(paddr + 0x220), *(uint8_t *)(paddr + 0x240), *(uint8_t *)(paddr + 0x260), *(uint8_t *)(paddr + 0x280), *(uint8_t *)(paddr + 0x2a0), *(uint8_t *)(paddr + 0x2c0), *(uint8_t *)(paddr + 0x2e0), *(uint8_t *)(paddr + 0x300));
 
 	rolling_friction(comp);
 }
@@ -811,17 +964,24 @@ void __fastcall rolling_friction_wrapper(void *comp) {
 
 #define spine_buttons_asm(SUCCESS, FAIL) __asm {	\
 	__asm push eax	\
+	__asm push ebx	\
 	__asm push ecx	\
-	__asm mov eax, comp	\
-	__asm mov ecx, dword ptr [eax + 0x1910]	\
+	__asm mov ebx, comp	\
+	__asm mov ecx, dword ptr [ebx + 0x1910]	\
 	__asm mov al, byte ptr [ecx + 0x120]	/* R2 */	\
 	__asm test al, al	\
 	__asm jne success	\
+	/* ignore L2 if on bike */	\
+	__asm mov al, byte ptr [ebx + 0x524]	/* is on bike */ \
+	__asm test al, al	\
+	__asm jne failure	\
 	__asm mov al, byte ptr [ecx + 0xc0]	/* L2 */	\
 	__asm test al, al	\
 	__asm jne success	\
 	\
+__asm failure:	\
 	__asm pop ecx	\
+	__asm pop ebx	\
 	__asm pop eax	\
 	__asm mov esp, ebp	\
 	__asm pop ebp	\
@@ -830,6 +990,7 @@ void __fastcall rolling_friction_wrapper(void *comp) {
 	\
 __asm success:	\
 	__asm pop ecx	\
+	__asm pop ebx	\
 	__asm pop eax	\
 	__asm mov esp, ebp	\
 	__asm pop ebp	\
@@ -839,17 +1000,24 @@ __asm success:	\
 
 #define not_spine_buttons_asm(SUCCESS, FAIL) __asm {	\
 	__asm push eax	\
+	__asm push ebx	\
 	__asm push ecx	\
-	__asm mov eax, comp	\
-	__asm mov ecx, dword ptr [eax + 0x1910]	\
+	__asm mov ebx, comp	\
+	__asm mov ecx, dword ptr [ebx + 0x1910]	\
 	__asm mov al, byte ptr [ecx + 0x120]	/* R2 */	\
 	__asm test al, al	\
 	__asm jne failure	\
+	/* ignore L2 if on bike */	\
+	__asm mov al, byte ptr [ebx + 0x524]	/* is on bike */ \
+	__asm test al, al	\
+	__asm jne success	\
 	__asm mov al, byte ptr [ecx + 0xc0]	/* L2 */	\
 	__asm test al, al	\
 	__asm jne failure	\
 	\
+__asm success:	\
 	__asm pop ecx	\
+	__asm pop ebx	\
 	__asm pop eax	\
 	__asm mov esp, ebp	\
 	__asm pop ebp	\
@@ -858,6 +1026,7 @@ __asm success:	\
 	\
 __asm failure:	\
 	__asm pop ecx	\
+	__asm pop ebx	\
 	__asm pop eax	\
 	__asm mov esp, ebp	\
 	__asm pop ebp	\
@@ -931,11 +1100,74 @@ void walk_acid_drop(void *comp) {
 	}
 }
 
+void not_bike_lip_check(void *comp) {
+	__asm {
+		push eax
+		push ecx
+		mov eax, comp
+		mov ecx, dword ptr [eax + 0x1910]
+		mov al, byte ptr [ecx + 0x100]	/* R1 */
+		test al, al
+		jne success
+		mov al, byte ptr [ecx + 0xa0]	/* L1 */
+		test al, al
+		jne success
+
+		pop ecx
+		pop eax
+		mov esp, ebp
+		pop ebp
+		push 0x005ce9c8	/* false */
+		ret 0x08
+
+	success:
+		pop ecx
+		pop eax
+		mov esp, ebp
+		pop ebp
+		push 0x005ceb7d	/* true */
+		ret 0x08
+	}
+}
+
+void bike_lip_check(void *comp) {
+	__asm {
+		push eax
+		push ecx
+		mov eax, comp
+		mov ecx, dword ptr [eax + 0x1910]
+		mov al, byte ptr [ecx + 0x100]	/* R1 */
+		test al, al
+		jne success
+		mov al, byte ptr [ecx + 0xa0]	/* L1 */
+		test al, al
+		jne success
+
+		pop ecx
+		pop eax
+		mov esp, ebp
+		pop ebp
+		push 0x005dc446	/* false */
+		ret 0x08
+
+	success:
+		pop ecx
+		pop eax
+		mov esp, ebp
+		pop ebp
+		push 0x005dc327	/* true */
+		ret 0x08
+	}
+}
+
 void patchPs2Buttons() {
+	//patchCall((void *)(0x005d471c), rolling_friction_wrapper);
+	//patchByte((void *)(0x005d471c), 0xe9);
+
 	patchByte((void *)(0x0046ee86 + 2), 0x05);	// change PC platform to gamecube.  this just makes it default to ps2 controls
 	//patchByte((void *)(0x0046ef29 + 2), 0x05);	// do ps2 things if xbox
 
-		// in air
+	// in air
 	patchByte((void *)(0x005dff41), 0x56);	// PUSH ESI
 	patchCall((void *)(0x005dff41 + 1), in_air_to_break);
 
@@ -991,9 +1223,16 @@ void patchPs2Buttons() {
 	// bike lip
 	//patchByte((void *)(0x005ce99a + 2), 0x00);
 	//patchByte((void *)(0x005ce99a + 3), 0x01);
-
-	//patchByte((void *)(0x005dc301 + 2), 0x00);
-	//patchByte((void *)(0x005dc301 + 3), 0x01);
+	patchByte((void *)(0x005ce99a), 0x53);	// PUSH EBX
+	patchByte((void *)(0x005ce99a + 1), 0x55);	// PUSH EBP
+	patchByte((void *)(0x005ce99a + 2), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005ce99a + 3), not_bike_lip_check);
+	
+	patchByte((void *)(0x005dc301), 0x56);	// PUSH ESI
+	patchCall((void *)(0x005dc301 + 1), bike_lip_check);
+	// change trick selection to if r1 or l1 is pressed
+	patchByte((void *)(0x005dc9be + 2), 0x80);
+	patchByte((void *)(0x005dc9be + 3), 0x00);
 
 	// natas spin
 	//patchByte((void *)(0x005e0f01 + 2), 0xa0);
@@ -1042,9 +1281,19 @@ void patchInput() {
 	//patchByte((void *)(0x00541ed0 + 7), 0xC3);
 
 	//activateactuator
-	patchByte((void *)(0x0062add0), 0xC2);
-	patchByte((void *)(0x0062add0 + 1), 0x08);
-	patchByte((void *)(0x0062add0 + 2), 0x00);
+	//patchByte((void *)(0x0062add0), 0xC2);
+	//patchByte((void *)(0x0062add0 + 1), 0x08);
+	//patchByte((void *)(0x0062add0 + 2), 0x00);
+
+	// set_actuator
+	// don't call read_data in activate_actuators
+	patchNop(0x0062ade1, 5);
+	patchCall(0x0062ae64, set_actuators);
+	patchCall(0x0062aec7, set_actuators);
+	patchCall(0x0062af6f, set_actuators);
+	patchCall(0x0062b001, set_actuators);
+	patchCall(0x0062b05f, set_actuators);
+	//patchByte((void *)(0x006b40a0), 0xe9);
 
 	// fix is_plugged_in crash???? TODO: figure out why it was getting an exception when accessing the device
 	//patchThisToCdecl((void *)0x0062a4a0, &controllerIsPluggedIn);
