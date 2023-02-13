@@ -1117,7 +1117,7 @@ void not_bike_lip_check(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005ce9c8	/* false */
+		push 0x005ceb7d	/* false */
 		ret 0x08
 
 	success:
@@ -1125,7 +1125,7 @@ void not_bike_lip_check(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005ceb7d	/* true */
+		push 0x005ce9c8	/* true */
 		ret 0x08
 	}
 }
@@ -1247,7 +1247,8 @@ void patchPs2Buttons() {
 	patchByte((void *)(0x005e2939 + 3), 0x01);
 
 	// bike fast spin/flip
-	patchByte((void *)(0x005d7d99 + 2), 0xa0);
+	patchByte((void *)(0x005d7d99 + 2), 0xa0);	// flip
+	patchByte((void *)(0x005d7e9f + 2), 0xa0);	// spin
 
 	// disable spin delay on l1/r1
 	patchNop((void *)(0x005cd230), 2);

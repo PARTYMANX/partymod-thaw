@@ -12,9 +12,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-int *resX = 0x00851084;
-int *resY = 0x00851088;
-int *bitDepth = 0x0085108c;
+//int *resX = 0x00851084;
+//int *resY = 0x00851088;
+//int *bitDepth = 0x0085108c;
 
 uint8_t *highBandwidth = 0x005b4e75;
 uint8_t *shadows = 0x005b4e76;
@@ -35,12 +35,34 @@ float *aspectRatio2 = 0x0058d96c;
 
 uint8_t borderless;
 
+int resX;
+int resY;
+
+typedef struct {
+	uint32_t BackBufferWidth;
+	uint32_t BackBufferHeight;
+	uint32_t BackBufferFormat;
+	uint32_t BackBufferCount;
+	uint32_t MultiSampleType;
+	int32_t MultiSampleQuality;
+	uint32_t SwapEffect;
+	HWND hDeviceWindow;
+	uint8_t Windowed;
+	uint8_t EnableAutoDepthStencil;
+	uint32_t AutoDepthStencilFormat;
+	int32_t Flags;
+	uint32_t FullScreen_RefreshRateInHz;
+	uint32_t PresentationInterval;
+} d3dPresentParams;
+
+//d3dPresentParams presentParams;
+
 SDL_Window *window;
 
 void dumpSettings() {
-	printf("RESOLUTION X: %d\n", *resX);
-	printf("RESOLUTION Y: %d\n", *resY);
-	printf("BIT DEPTH: %d\n", *bitDepth);
+	printf("RESOLUTION X: %d\n", resX);
+	printf("RESOLUTION Y: %d\n", resY);
+	//printf("BIT DEPTH: %d\n", *bitDepth);
 	printf("HIGH BANDWIDTH: %02x\n", *highBandwidth);
 	printf("PLAY INTRO: %02x\n", *playIntro);
 	printf("CUSTOM SETTINGS: %02x\n", *customSettings);
@@ -59,10 +81,10 @@ void enforceMaxResolution() {
 	uint8_t isValidY = 0;
 
 	while (EnumDisplaySettings(NULL, i, &deviceMode)) {
-		if (deviceMode.dmPelsWidth >= *resX) {
+		if (deviceMode.dmPelsWidth >= resX) {
 			isValidX = 1;
 		}
-		if (deviceMode.dmPelsHeight >= *resY) {
+		if (deviceMode.dmPelsHeight >= resY) {
 			isValidY = 1;
 		}
 
@@ -70,14 +92,16 @@ void enforceMaxResolution() {
 	}
 
 	if (!isValidX || !isValidY) {
-		*resX = 0;
-		*resY = 0;
+		resX = 0;
+		resY = 0;
 	}
 }
 
 void loadSettings();
 
 void createSDLWindow() {
+	loadSettings();
+
 	SDL_Init(SDL_INIT_VIDEO);
 	isWindowed = 1;
 
@@ -91,21 +115,21 @@ void createSDLWindow() {
 
 	enforceMaxResolution();
 
-	if (*resX == 0 || *resY == 0) {
+	if (resX == 0 || resY == 0) {
 		SDL_DisplayMode displayMode;
 		SDL_GetDesktopDisplayMode(0, &displayMode);
-		*resX = displayMode.w;
-		*resY = displayMode.h;
+		resX = displayMode.w;
+		resY = displayMode.h;
 	}
 		
-	if (*resX < 640) {
-		*resX = 640;
+	if (resX < 640) {
+		resX = 640;
 	}
-	if (*resY < 480) {
-		*resY = 480;
+	if (resY < 480) {
+		resY = 480;
 	}
 
-	window = SDL_CreateWindow("THAW - PARTYMOD", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, flags);   // TODO: fullscreen
+	window = SDL_CreateWindow("THAW - PARTYMOD", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, resX, resY, flags);   // TODO: fullscreen
 
 	if (!window) {
 		printf("Failed to create window! Error: %s\n", SDL_GetError());
@@ -119,6 +143,42 @@ void createSDLWindow() {
 	int *isFocused = 0x008a35d5;
 	int *other_isFocused = 0x0072e850;
 	*isFocused = 1;
+
+	//int *multiSampleType = 0x00858d7c;
+	//*multiSampleType = 2;
+
+	//int *resX2 = 0x0072e234;
+	//int *resY2 = 0x0072e238;
+	//d3dPresentParams *presentParams = 0x00858d6c;
+
+	//*resX2 = resX;
+	//*resY2 = resY;
+
+	printf("resx: %d resy: %d isWindowed: %d\n", resX, resY, isWindowed);
+
+	/*
+	*presentParams = (d3dPresentParams){
+		.BackBufferWidth = resX,
+		.BackBufferHeight = resY,
+		.BackBufferFormat = (isWindowed) ? 0 : 0x16,	// D3DFMT_X8R8G8B8
+		.BackBufferCount = 1,
+		.MultiSampleType = *multiSampleType,
+		.MultiSampleQuality = 0,
+		.SwapEffect = 1,	// D3DSWAPEFFECT_DISCARD
+		.hDeviceWindow = *hwnd,
+		.Windowed = isWindowed,
+		.EnableAutoDepthStencil = 1,
+		.AutoDepthStencilFormat = 0x4b,	// D3DFMT_D24S8
+		.Flags = 0,
+		.FullScreen_RefreshRateInHz = 0,
+		.PresentationInterval = 0,
+	};
+	*/
+
+	//patchDWord()
+	patchDWord(0x0053515a + 4, resX);
+	patchDWord(0x0053518a + 4, resY);
+	
 }
 
 void patchWindow() {
@@ -129,6 +189,17 @@ void patchWindow() {
 	//patchDWord((void *)0x00409df4, style);
 	patchCall(0x006b3290, createSDLWindow);
 	patchByte(0x006b3290 + 5, 0xc3);
+
+	//patchNop(0x005350ea, 0x100);	// don't set present params
+	//patchNop(0x005350ea, 30);
+	//patchNop(0x0053513d, 173);
+
+	//patchNop(0x005340df, 6);
+	//patchNop(0x005340ef, 6);	// do NOT overwrite resolution
+
+	//patchNop(0x00535244, 8);	// don't overwrite resolution
+
+	patchNop(0x005352b3, 14);	// don't move window to corner
 }
 
 #define GRAPHICS_SECTION "Graphics"
@@ -158,8 +229,8 @@ void loadSettings() {
 	//*distanceFog = getIniBool("Graphics", "DistanceFog", 0, configFile);
 	//*lowDetailModels = getIniBool("Graphics", "LowDetailModels", 0, configFile);
    
-	*resX = GetPrivateProfileInt("Graphics", "ResolutionX", 640, configFile);
-	*resY = GetPrivateProfileInt("Graphics", "ResolutionY", 480, configFile);
+	resX = GetPrivateProfileInt("Graphics", "ResolutionX", 640, configFile);
+	resY = GetPrivateProfileInt("Graphics", "ResolutionY", 480, configFile);
 	if (!isWindowed) {
 		isWindowed = getIniBool("Graphics", "Windowed", 0, configFile);
 	}
@@ -169,7 +240,7 @@ void loadSettings() {
 	//*frameCap = 1;  // not useful...maybe
 	//*bitDepth = 32;	// forcing this to 32 as it's 2022
 
-	float aspectRatio = ((float)*resX) / ((float)*resY);
+	float aspectRatio = ((float)resX) / ((float)resY);
 	//patchFloat(0x0058eb14, aspectRatio);
 	//patchFloat(0x0058d96c, aspectRatio);
 
