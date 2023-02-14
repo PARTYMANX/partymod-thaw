@@ -10,6 +10,7 @@ struct keybinds {
 	SDL_Scancode cameraToggle;
 	SDL_Scancode cameraSwivelLock;
 	SDL_Scancode focus;
+	SDL_Scancode caveman;
 
 	SDL_Scancode grind;
 	SDL_Scancode grab;
@@ -71,6 +72,7 @@ struct controllerbinds {
 	controllerButton cameraToggle;
 	controllerButton cameraSwivelLock;
 	controllerButton focus;
+	controllerButton caveman;
 
 	controllerButton grind;
 	controllerButton grab;
@@ -91,6 +93,11 @@ struct controllerbinds {
 	controllerStick camera;
 };
 
+struct inputsettings {
+	uint8_t isPs2Controls;
+};
+
+void loadInputSettings(struct inputsettings *settingsOut);
 void loadControllerBinds(struct controllerbinds *bindsOut);
 void loadKeyBinds(struct keybinds *bindsOut);
 int getIniBool(char *section, char *key, int def, char *file);

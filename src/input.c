@@ -107,52 +107,34 @@ typedef struct {
 	uint32_t dinputInterface;
 } manager;
 
+void patchPs2Buttons();
+
 int (__stdcall *menuOnScreen)() = (void *)0x0044a540;
 
 int controllerCount;
 int controllerListSize;
-SDL_GameController **controllerList;    // does this need to be threadsafe?
+SDL_GameController **controllerList;
+struct inputsettings inputsettings;
 struct keybinds keybinds;
 struct controllerbinds padbinds;
 
 uint8_t isCursorActive = 1;
 uint8_t isUsingKeyboard = 1;
 
+#define MAX_PLAYERS 2
+uint8_t numplayers = 0;
+SDL_GameController *players[MAX_PLAYERS] = { NULL, NULL };
+
 void setUsingKeyboard(uint8_t usingKeyboard) {
 	isUsingKeyboard = usingKeyboard;
-
-	if (isUsingKeyboard && isCursorActive) {
-		SDL_ShowCursor(SDL_ENABLE);
-	} else {
-		SDL_ShowCursor(SDL_DISABLE);
-	}
-}
-
-// this looks messy to have two functions for cursor hiding/showing, but it makes it easier to inject
-void setCursorActive() {
-	isCursorActive = 1;
-
-	if (isUsingKeyboard && isCursorActive) {
-		SDL_ShowCursor(SDL_ENABLE);
-	} else {
-		SDL_ShowCursor(SDL_DISABLE);
-	}
-}
-
-void setCursorInactive() {
-	isCursorActive = 0;
-
-	if (isUsingKeyboard && isCursorActive) {
-		SDL_ShowCursor(SDL_ENABLE);
-	} else {
-		SDL_ShowCursor(SDL_DISABLE);
-	}
 }
 
 void addController(int idx) {
 	printf("Detected controller \"%s\"\n", SDL_GameControllerNameForIndex(idx));
 
 	SDL_GameController *controller = SDL_GameControllerOpen(idx);
+
+	SDL_GameControllerSetPlayerIndex(controller, -1);
 
 	if (controller) {
 		if (controllerCount == controllerListSize) {
@@ -171,6 +153,43 @@ void addController(int idx) {
 	}
 }
 
+void addplayer(SDL_GameController *controller) {
+	if (numplayers < 2) {
+		// find open slot
+		uint8_t found = 0;
+		int i = 0;
+		for (; i < MAX_PLAYERS; i++) {
+			if (!players[i]) {
+				found = 1;
+				break;
+			}
+		}
+		if (found) {
+			SDL_GameControllerSetPlayerIndex(controller, i);
+			players[i] = controller;
+			numplayers++;
+
+			printf("Added player %d: %s\n", i + 1, SDL_GameControllerName(controller));
+
+			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0xffff, 0xffff, 250);
+		}
+	} else {
+		printf("Already two players, not adding\n");
+	}
+}
+
+void pruneplayers() {
+	for (int i = 0; i < MAX_PLAYERS; i++) {
+		if (players[i] && !SDL_GameControllerGetAttached(players[i])) {
+			printf("Pruned player %d\n", i + 1);
+
+			players[i] = NULL;
+			numplayers--;
+			printf("Remaining players: %d\n", numplayers);
+		}
+	}
+}
+
 void removeController(SDL_GameController *controller) {
 	printf("Controller \"%s\" disconnected\n", SDL_GameControllerName(controller));
 
@@ -183,15 +202,23 @@ void removeController(SDL_GameController *controller) {
 	if (controllerList[i] == controller) {
 		SDL_GameControllerClose(controller);
 
+		int playerIdx = SDL_GameControllerGetPlayerIndex(controller);
+		if (playerIdx != -1) {
+			printf("Removed player %d\n", playerIdx + 1);
+			players[playerIdx] = NULL;
+			numplayers--;
+		}
+
+		pruneplayers();
+
 		for (; i < controllerCount - 1; i++) {
 			controllerList[i] = controllerList[i + 1];
 		}
 		controllerCount--;
 	} else {
+		//setActiveController(NULL);
 		printf("Did not find disconnected controller in list\n");
 	}
-
-	//Sleep(10000);
 }
 
 void initSDLControllers() {
@@ -248,8 +275,6 @@ void getStick(SDL_GameController *controller, controllerStick stick, uint8_t *xO
 
 void pollController(device *dev, SDL_GameController *controller) {
 	if (SDL_GameControllerGetAttached(controller)) {
-		//printf("Polling controller \"%s\"\n", SDL_GameControllerName(controller));
-
 		dev->isValid = 1;
 		dev->isPluggedIn = 1;
 
@@ -323,39 +348,20 @@ void pollController(device *dev, SDL_GameController *controller) {
 			dev->controlData[9] = 0xFF;
 		}
 
-		// big hack: bike backwards revert looks for caveman button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
-		if (getButton(controller, padbinds.switchRevert)) {
-			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+		if (inputsettings.isPs2Controls) {
+			// big hack: bike backwards revert looks for caveman button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
+			if (getButton(controller, padbinds.switchRevert)) {
+				dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+			} 
+		} else {
+			if (getButton(controller, padbinds.caveman)) {
+				dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+			} 
 		}
-
+		
 		// sticks
 		getStick(controller, padbinds.camera, &(dev->controlData[4]), &(dev->controlData[5]));
 		getStick(controller, padbinds.movement, &(dev->controlData[6]), &(dev->controlData[7]));
-
-		// apply left stick direction to dpad buttons to allow for menu selections with stick
-		// this is safe because park editor does not poll the controller and nothing else separates stick and dpad
-		// TODO: check if in menu
-		/*if (menuOnScreen()) {
-				if (dev->controlData[6] < 64) {
-				// > 50% left input
-				dev->controlData[2] |= 0x01 << 7;
-				dev->controlData[9] = 0xFF;
-			} else if (dev->controlData[6] > (255 - 64)) {
-				// > 50% right input
-				dev->controlData[2] |= 0x01 << 5;
-				dev->controlData[8] = 0xFF;
-			}
-
-			if (dev->controlData[7] < 64) {
-				// > 50% up input
-				dev->controlData[2] |= 0x01 << 4;
-				dev->controlData[10] = 0xFF;
-			} else if (dev->controlData[7] > (255 - 64)) {
-				// > 50% down input
-				dev->controlData[2] |= 0x01 << 6;
-				dev->controlData[11] = 0xFF;
-			}
-		}*/
 	}
 }
 
@@ -394,6 +400,17 @@ void pollKeyboard(device *dev) {
 	if (keyboardState[keybinds.kick]) {
 		dev->controlData[3] |= 0x01 << 7;
 		dev->controlData[15] = 0xff;
+	}
+
+	if (inputsettings.isPs2Controls) {
+		// big hack: bike backwards revert looks for caveman button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
+		if (keyboardState[keybinds.switchRevert]) {
+			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+		} 
+	} else {
+		if (keyboardState[keybinds.caveman]) {
+			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+		} 
 	}
 
 	// shoulders
@@ -590,19 +607,48 @@ void do_key_input(SDL_KeyCode key) {
 		key_out = '(';
 	} else if (key == SDLK_0 && modstate & KMOD_SHIFT) {
 		key_out = ')';
+	} else if (key == SDLK_KP_0) {
+		key_out = '0';
+	} else if (key == SDLK_KP_1) {
+		key_out = '1';
+	} else if (key == SDLK_KP_2) {
+		key_out = '2';
+	} else if (key == SDLK_KP_3) {
+		key_out = '3';
+	} else if (key == SDLK_KP_4) {
+		key_out = '4';
+	} else if (key == SDLK_KP_5) {
+		key_out = '5';
+	} else if (key == SDLK_KP_6) {
+		key_out = '6';
+	} else if (key == SDLK_KP_7) {
+		key_out = '7';
+	} else if (key == SDLK_KP_8) {
+		key_out = '8';
+	} else if (key == SDLK_KP_9) {
+		key_out = '9';
+	} else if (key == SDLK_KP_MINUS) {
+		key_out = '-';
+	} else if (key == SDLK_KP_EQUALS) {
+		key_out = '=';
+	} else if (key == SDLK_KP_PLUS) {
+		key_out = '+';
+	} else if (key == SDLK_KP_DIVIDE) {
+		key_out = '/';
+	} else if (key == SDLK_KP_MULTIPLY) {
+		key_out = '*';
+	} else if (key == SDLK_KP_DECIMAL) {
+		key_out = '.';
+	} else if (key == SDLK_KP_ENTER) {
+		key_out = 0x0d;
 	} else {
 		key_out = -1;
 	}
 
-	//printf("TEST!!\n");
-
 	key_input(key_out, 0);
-	//key_input_other(key_out, 0);
 }
 
 void processEvent(SDL_Event *e) {
-
-
 	switch (e->type) {
 		case SDL_CONTROLLERDEVICEADDED:
 			if (SDL_IsGameController(e->cdevice.which)) {
@@ -623,78 +669,49 @@ void processEvent(SDL_Event *e) {
 			return;
 		case SDL_KEYDOWN: 
 			//printf("KEY: %s\n", SDL_GetKeyName(e->key.keysym.sym));
+			setUsingKeyboard(1);
+			//setActiveController(NULL);
 			do_key_input(e->key.keysym.sym);
 			return;
-		/*case SDL_CONTROLLERBUTTONDOWN:
+		case SDL_CONTROLLERBUTTONDOWN: {
+			SDL_GameController *controller = SDL_GameControllerFromInstanceID(e->cdevice.which);
+			if (SDL_GameControllerGetPlayerIndex(controller) == -1) {
+				addplayer(controller);
+			}
+		}
+			
 		case SDL_CONTROLLERAXISMOTION:
 			setUsingKeyboard(0);
 			return;
-		case SDL_MOUSEBUTTONDOWN:
-			setUsingKeyboard(1);
-			if (e->button.button == SDL_BUTTON_LEFT) {
-				void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x00404950;
-				mouseMove(0x0000, (int16_t) e->button.x, (int16_t) e->button.y);
-			} else if (e->button.button == SDL_BUTTON_RIGHT) {
-				void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x00405010;
-				mouseMove(0x0000, (int16_t) e->button.x, (int16_t) e->button.y);
-			} else if (e->button.button == SDL_BUTTON_MIDDLE) {
-				void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x00404dc0;
-				mouseMove(0x0000, (int16_t) e->button.x, (int16_t) e->button.y);
-			}
-			return;
-		case SDL_MOUSEBUTTONUP:
-			setUsingKeyboard(1);
-			if (e->button.button == SDL_BUTTON_LEFT) {
-				void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x00404d20;
-				mouseMove(0x0000, (int16_t) e->button.x, (int16_t) e->button.y);
-			} else if (e->button.button == SDL_BUTTON_RIGHT) {
-				void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x004052d0;
-				mouseMove(0x0000, (int16_t) e->button.x, (int16_t) e->button.y);
-			} else if (e->button.button == SDL_BUTTON_MIDDLE) {
-				void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x00404f70;
-				mouseMove(0x0000, (int16_t) e->button.x, (int16_t) e->button.y);
-			}
-			return;
-		case SDL_MOUSEMOTION: {
-			setUsingKeyboard(1);
-			void (__stdcall *mouseMove)(int16_t, int16_t, int16_t) = (void*)0x00405370;
-			mouseMove(0x0000, (int16_t) e->motion.x, (int16_t) e->motion.y);
-			return;
-		}
-		case SDL_QUIT: {
-			void (__cdecl *resetEngine)() = (void *)0x0041ba40;	// script function to exit game
-			resetEngine();
-			return;
-		}
-		case SDL_KEYDOWN: 
-			setUsingKeyboard(1);
-			return;*/
 		case SDL_QUIT: {
 			int *shouldQuit = 0x008b2198;
 			*shouldQuit = 1;
 			return;
 		}
-		case SDL_WINDOWEVENT_FOCUS_GAINED: {
-			int *isFocused = 0x008a35d5;
-			int *other_isFocused = 0x0072e850;
-			*isFocused = 1;
-			return;
-		}
-		case SDL_WINDOWEVENT_FOCUS_LOST: {
-			int *isFocused = 0x008a35d5;
-			int *other_isFocused = 0x0072e850;
-			*isFocused = 0;
-			*other_isFocused = 0;
-			return;
-		}
-
-			
+		/*case SDL_WINDOWEVENT: {
+			if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+				int *isFocused = 0x008a35d5;
+				int *other_isFocused = 0x0072e850;
+				*isFocused = 1;
+				return;
+			} else if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+				int *isFocused = 0x008a35d5;
+				int *other_isFocused = 0x0072e850;
+				*isFocused = 0;
+				//*other_isFocused = 0;
+				return;
+			}
+		}*/
 		default:
 			return;
 	}
 }
 
 void __cdecl processController(device *dev) {
+	// cheating:
+	// replace type with index
+	//dev->type = 60;
+
 	//printf("Processing Controller %d %d %d!\n", dev->index, dev->slot, dev->port);
 	//printf("TYPE: %d\n", dev->type);
 	//printf("ISPLUGGEDIN: %d\n", dev->isPluggedIn);
@@ -711,8 +728,8 @@ void __cdecl processController(device *dev) {
 		//printf("EVENT!!!\n");
 	}
 
-	dev->isValid = 1;
-	dev->isPluggedIn = 1;
+	dev->isValid = 0;
+	dev->isPluggedIn = 0;
 
 	dev->controlData[0] = 0;
 	dev->controlData[1] = 0x70;
@@ -750,13 +767,19 @@ void __cdecl processController(device *dev) {
 
 	dev->controlData[20] = 0;
 
-	if (!isKeyboardTyping()) {
-		pollKeyboard(dev);
+	if (dev->port == 0) {
+		dev->isValid = 1;
+		dev->isPluggedIn = 1;
+
+		if (!isKeyboardTyping()) {
+			pollKeyboard(dev);
+		}
 	}
 
 	// TODO: maybe smart selection of active controller?
-	if (dev->port == 0) {
-		for (int i = 0; i < controllerCount; i++) {
+	
+	for (int i = 0; i < controllerCount; i++) {
+		if (SDL_GameControllerGetPlayerIndex(controllerList[i]) == dev->port) {
 			pollController(dev, controllerList[i]);
 		}
 	}
@@ -775,19 +798,8 @@ void __cdecl processController(device *dev) {
 	} else {
 		dev->start_or_a_pressed = 0;
 	}
-	
-	
 
-	//int (__stdcall *isVibrationOn)() = (void *)0x0041f910;
-	//int vibe = isVibrationOn();
-	//printf("IS VIBRATION ON: %d\n", vibe);	// enable vibration: 0041f970
-
-	//printf("VIBRATION BUFFERS:\n");
-	//printf("%08x%08x%08x%08x%08x%08x%08x%08x\n", dev->vibrationData_align[0], dev->vibrationData_align[1], dev->vibrationData_align[2], dev->vibrationData_align[3], dev->vibrationData_align[4], dev->vibrationData_align[5], dev->vibrationData_align[6], dev->vibrationData_align[7]);
-	//printf("%08x%08x%08x%08x%08x%08x%08x%08x\n", dev->vibrationData_direct[0], dev->vibrationData_direct[1], dev->vibrationData_direct[2], dev->vibrationData_direct[3], dev->vibrationData_direct[4], dev->vibrationData_direct[5], dev->vibrationData_direct[6], dev->vibrationData_direct[7]);
-	//printf("%08x%08x%08x%08x%08x%08x%08x%08x\n", dev->vibrationData_max[0], dev->vibrationData_max[1], dev->vibrationData_max[2], dev->vibrationData_max[3], dev->vibrationData_max[4], dev->vibrationData_max[5], dev->vibrationData_max[6], dev->vibrationData_max[7]);
-	//printf("\n");
-
+	// keyboard text entry doesn't work unless these values are set
 	uint8_t *unk1 = 0x0074fb42;
 	uint8_t *unk2 = 0x00751dc0;
 	uint8_t *unk3 = 0x0074fb43;
@@ -798,47 +810,17 @@ void __cdecl processController(device *dev) {
 	//printf("UNKNOWN VALUES: 0x0074fb42: %d, 0x00751dc0: %d, 0x0074fb43: %d\n", *unk1, *unk2, *unk3);
 }
 
-void __cdecl set_actuators(void *empty, uint16_t left, uint16_t right) {
-	//printf("SETTING ACTUATORS: %d %d\n", left, right);
+void __cdecl set_actuators(int port, uint16_t left, uint16_t right) {
+	//printf("SETTING ACTUATORS: %d %d %d\n", port, left, right);
 	for (int i = 0; i < controllerCount; i++) {
-		SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), left, right, 1000);
+		if (SDL_GameControllerGetAttached(controllerList[i]) && SDL_GameControllerGetPlayerIndex(controllerList[i]) == port) {
+			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), left, right, 1000);
+		}
 	}
-}
-
-void __cdecl acquireController(device *dev) {
-	printf("Acquiring Controller %d %d %d!\n", dev->index, dev->slot, dev->port);
-}
-
-void __cdecl unacquireController(device *dev) {
-	//printf("Unacquiring Controller %d!\n", dev->index);
-}
-
-void __cdecl createController(device *dev) {
-	printf("Initializing Controller index: %d, slot: %d, port: %d!\n", dev->index, dev->slot, dev->port);
-
-	
-}
-
-void __cdecl releaseController(device *dev) {
-	printf("Releasing Controller %d!\n", dev->index);
-}
-
-void __cdecl controllerIsPluggedIn(device *dev) {
-	return dev->isPluggedIn;
-}
-
-int newDevice(manager* m, int index) {
-	// we're treating a __thiscall as a __fastcall here, so we use a dummy parameter in the second slot.
-	// added an extra parameter as there seems to be something else pushed to the stack when calling this method
-	// WARNING: DO NOT TRY COMPILING THIS WITH O2.  IT DOES NOT WORK.  I DO NOT KNOW WHY
-	int (__fastcall *newDevice)(manager *, void *, int, void *) = (void *)0x0040dac0;
-	return newDevice(m, NULL, index, NULL);
 }
 
 void __stdcall initManager() {
 	printf("Initializing Manager!\n");
-	//manager->hinstance = hinstance;
-	//manager->hwnd = hwnd;
 
 	// init sdl here
 	SDL_Init(SDL_INIT_GAMECONTROLLER);
@@ -859,85 +841,15 @@ void __stdcall initManager() {
 		
 	}
 
+	loadInputSettings(&inputsettings);
 	loadKeyBinds(&keybinds);
 	loadControllerBinds(&padbinds);
 
 	initSDLControllers();
 
-	//newDevice(manager, 0);
-
-	//callFunc((void *)0x00403bb0);    // not sure what this is, but it needs to be called or the game crashes
-}
-
-int __stdcall getVKeyboardState(uint8_t *out) {
-	// translates from SDL scancode to windows vkey.  I want to die.
-	int keyCount;
-	uint8_t *keystate = SDL_GetKeyboardState(&keyCount);
-
-	memset(out, 0, 256);
-
-	for (int i = 0; i < keyCount; i++) {
-		if (keystate[i]) {
-			int idx = vkeyLUT[i];
-			out[idx] = 0x80;
-		}
+	if (inputsettings.isPs2Controls) {
+		patchPs2Buttons();
 	}
-
-	/*int (*test1)() = (void *)0x00403df0;
-	printf("TEST 1: %d\n", test1());
-	uint8_t (*test2)() = (void *)0x004090b0;
-	printf("TEST 2: %d\n", test2());
-
-	int (*test3)() = (void *)0x00407a10;
-	printf("TEST 3: %d\n", test3());*/
-
-	return 1;
-}
-
-uint16_t __stdcall getShiftCtrlState(int key) {
-	if (key == 0x10 && SDL_GetModState() & KMOD_SHIFT) {
-		return 0x8000;
-	} else if (key == 0x11 && SDL_GetModState() & KMOD_CTRL) {
-		return 0x8000;
-	}
-
-	return 0x0000;
-}
-
-uint16_t __stdcall getCapsState(int key) {
-	if (SDL_GetModState() & KMOD_CAPS) {
-		return 0x0001;
-	}
-
-	return 0x0000;
-}
-
-int processIntroEvent() {
-	int result = 0;
-
-	SDL_Event e;
-	while(SDL_PollEvent(&e)) {
-		switch(e.type) {
-			case SDL_CONTROLLERBUTTONDOWN:
-			case SDL_KEYDOWN:
-			case SDL_MOUSEBUTTONDOWN:
-				if (result == 0) {
-					result = 1;
-				}
-				break;
-			case SDL_QUIT:
-				result = 2;
-				break;
-		}
-
-		processEvent(&e);
-	}
-
-	return result;
-}
-
-void stub() {
-	printf("STUB!");
 }
 
 void __fastcall rolling_friction_wrapper(void *comp) {
@@ -959,8 +871,8 @@ void __fastcall rolling_friction_wrapper(void *comp) {
 
 	rolling_friction(comp);
 }
-	//patchCall((void *)(0x005d471c), rolling_friction_wrapper);
-	//patchByte((void *)(0x005d471c), 0xe9);
+//patchCall((void *)(0x005d471c), rolling_friction_wrapper);
+//patchByte((void *)(0x005d471c), 0xe9);
 
 #define spine_buttons_asm(SUCCESS, FAIL) __asm {	\
 	__asm push eax	\
@@ -1260,31 +1172,6 @@ void patchInput() {
 	// process
 	patchThisToCdecl((void *)0x0062b090, &processController);
 	patchByte((void *)(0x0062b090 + 7), 0xC3);
-	//patchByte((void *)(0x0062b090 + 8), 0x04);
-	//patchByte((void *)(0x0062b090 + 9), 0x00);
-
-	//patchThisToCdecl((void *)0x0062a570, &processController);
-	//patchByte((void *)(0x0062a570 + 7), 0xC3);
-
-	// acquire
-	//patchThisToCdecl((void *)0x00541f70, &acquireController);
-	//patchByte((void *)(0x00541f70 + 7), 0xC3);
-	// unacquire - NOT FOUND!!
-	//patchThisToCdecl((void *)0x0040d060, &unacquireController);
-	//patchByte((void *)(0x0040d060 + 7), 0xC3);
-	// init
-	//patchThisToCdecl((void *)0x00541df0, &initController);
-	//patchByte((void *)(0x00541df0 + 7), 0xC2);
-	//patchByte((void *)(0x00541df0 + 8), 0x04);
-	//patchByte((void *)(0x00541df0 + 9), 0x00);
-	// release
-	//patchThisToCdecl((void *)0x00541ed0, &releaseController);
-	//patchByte((void *)(0x00541ed0 + 7), 0xC3);
-
-	//activateactuator
-	//patchByte((void *)(0x0062add0), 0xC2);
-	//patchByte((void *)(0x0062add0 + 1), 0x08);
-	//patchByte((void *)(0x0062add0 + 2), 0x00);
 
 	// set_actuator
 	// don't call read_data in activate_actuators
@@ -1294,80 +1181,11 @@ void patchInput() {
 	patchCall(0x0062af6f, set_actuators);
 	patchCall(0x0062b001, set_actuators);
 	patchCall(0x0062b05f, set_actuators);
-	//patchByte((void *)(0x006b40a0), 0xe9);
-
-	// fix is_plugged_in crash???? TODO: figure out why it was getting an exception when accessing the device
-	//patchThisToCdecl((void *)0x0062a4a0, &controllerIsPluggedIn);
-	//patchByte((void *)(0x0062a4a0 + 7), 0xc3);
-	//patchByte((void *)(0x0062a4a0), 0xb0);
-	//patchByte((void *)(0x0062a4a0 + 1), 0x01);
-	//patchByte((void *)(0x0062a4a0 + 2), 0xc3);
-
-
-	// patch SIO::Manager
-	// 0x40db20 - Init
-	// init
-	//patchNop((void *)0x0040db3a, 66);   // directinput8create
-	//patchNop((void *)0x0040db20, 156);
-	//patchNop((void *)0x0040db81, 4);  // setup newdevice call (needed)
-	//patchNop((void *)0x0040db8f, 15); // newdevice (0) (needed)
-	//patchNop((void *)0x0040db9e, 18);   // enumdevices
-	//patchNop(0x0040dbb0, 5);  // function that must be called
 	
 	// init input patch - nop direct input setup
-	//patchNop(0x005430fc, 49);
 	patchNop(0x006b4c23, 45);
 	patchCall(0x006b4c23 + 5, &initManager);
-	//patchCall(0x006b4c23 + 5, &stub);
 
 	// some config call relating to the dinput devices
 	patchNop(0x0054481c, 5);
-
-
-	patchPs2Buttons();
-
-	//patchNop(0x0054310A, 35);	// DirectInput8Create
-	//patchNop(0x0054312d, 8);	// createDevice
-	//patchNop(0x00543147, 12);	// createDevice
-	//patchNop(0x00543153, 11);	// sleep
-	//patchCall(0x006b4c35 + 5, &initManager);
-
-	//patchThisToCdecl((void *)0x0040db20, &initManager);
-	// MOV EAX,0x01 (return 1) NOTE: we're only doing this to be good.  nothing ever reads the return value
-	//patchInst((void *)(0x00543070 + 7), MOVIMM8);
-	//patchByte((void *)(0x00543070 + 8), 0x01);
-	// RET 0x0008 (pop twice, return);
-	//patchByte((void *)(0x00543070 + 9), 0xC2);
-	//patchByte((void *)(0x00543070 + 10), 0x08);
-	//patchByte((void *)(0x00543070 + 11), 0x00);
-	//patchNop(0x0040db20, 12);  // function that must be called
-
-	// patch keyboard input
-	/*patchNop((void *)0x00403c66, 6);
-	patchCall((void *)0x00403c66, &getVKeyboardState);
-
-	patchNop((void *)0x00403c74, 6);
-	patchCall((void *)0x00403c74, &getShiftCtrlState);
-
-	patchNop((void *)0x00403c85, 6);
-	patchCall((void *)0x00403c85, &getCapsState);
-
-	// always say window is active
-	patchNop((void *)0x004090b0, 5);
-	patchInst((void *)0x004090b0, MOVIMM8);
-	patchByte((void *)(0x004090b0 + 1), 0x01);
-
-	//patchByte((void *)0x00403d90, 0x74);
-
-	// park editor call.  this one's weird
-	//patchDWord((void *)0x00461608, (uint32_t)getShiftCtrlState);
-
-	// use our own cursor logic
-	// show cursor
-	patchCall((void *)0x00405780, &setCursorActive);
-	patchByte((void *)(0x00405780 + 5), 0xC3);
-	// hide cursor
-	patchCall((void *)0x004057C0, &setCursorInactive);
-	patchByte((void *)(0x004057C0 + 5), 0xC3);*/
-
 }

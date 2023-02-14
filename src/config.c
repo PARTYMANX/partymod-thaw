@@ -33,6 +33,8 @@ HWND *hwnd = 0x008b2194;
 float *aspectRatio1 = 0x0058eb14;
 float *aspectRatio2 = 0x0058d96c;
 
+uint8_t resbuffer[100000];	// buffer needed for high resolutions
+
 uint8_t borderless;
 
 int resX;
@@ -144,41 +146,11 @@ void createSDLWindow() {
 	int *other_isFocused = 0x0072e850;
 	*isFocused = 1;
 
-	//int *multiSampleType = 0x00858d7c;
-	//*multiSampleType = 2;
-
-	//int *resX2 = 0x0072e234;
-	//int *resY2 = 0x0072e238;
-	//d3dPresentParams *presentParams = 0x00858d6c;
-
-	//*resX2 = resX;
-	//*resY2 = resY;
-
-	printf("resx: %d resy: %d isWindowed: %d\n", resX, resY, isWindowed);
-
-	/*
-	*presentParams = (d3dPresentParams){
-		.BackBufferWidth = resX,
-		.BackBufferHeight = resY,
-		.BackBufferFormat = (isWindowed) ? 0 : 0x16,	// D3DFMT_X8R8G8B8
-		.BackBufferCount = 1,
-		.MultiSampleType = *multiSampleType,
-		.MultiSampleQuality = 0,
-		.SwapEffect = 1,	// D3DSWAPEFFECT_DISCARD
-		.hDeviceWindow = *hwnd,
-		.Windowed = isWindowed,
-		.EnableAutoDepthStencil = 1,
-		.AutoDepthStencilFormat = 0x4b,	// D3DFMT_D24S8
-		.Flags = 0,
-		.FullScreen_RefreshRateInHz = 0,
-		.PresentationInterval = 0,
-	};
-	*/
-
-	//patchDWord()
+	// patch resolution setting
 	patchDWord(0x0053515a + 4, resX);
 	patchDWord(0x0053518a + 4, resY);
 	
+	SDL_ShowCursor(0);
 }
 
 void patchWindow() {
@@ -189,6 +161,8 @@ void patchWindow() {
 	//patchDWord((void *)0x00409df4, style);
 	patchCall(0x006b3290, createSDLWindow);
 	patchByte(0x006b3290 + 5, 0xc3);
+
+	patchDWord(0x0050d025 + 1, &resbuffer);
 
 	//patchNop(0x005350ea, 0x100);	// don't set present params
 	//patchNop(0x005350ea, 30);
@@ -256,15 +230,25 @@ void loadSettings() {
 #define KEYBIND_SECTION "Keybinds"
 #define CONTROLLER_SECTION "Gamepad"
 
+void loadInputSettings(struct inputsettings *settingsOut) {
+	char configFile[1024];
+	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
+
+	if (settingsOut) {
+		settingsOut->isPs2Controls = GetPrivateProfileInt(KEYBIND_SECTION, "UsePS2Controls", 1, configFile);
+	}
+}
+
 void loadKeyBinds(struct keybinds *bindsOut) {
 	char configFile[1024];
 	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
 
 	if (bindsOut) {
-		bindsOut->menu = GetPrivateProfileInt(KEYBIND_SECTION, "Pause", 0, configFile);
-		bindsOut->cameraToggle = GetPrivateProfileInt(KEYBIND_SECTION, "ViewToggle", SDL_SCANCODE_GRAVE, configFile);
-		bindsOut->cameraSwivelLock = GetPrivateProfileInt(KEYBIND_SECTION, "SwivelLock", 0, configFile);
-		bindsOut->focus = GetPrivateProfileInt(CONTROLLER_SECTION, "Focus", 0, configFile);
+		bindsOut->menu = GetPrivateProfileInt(KEYBIND_SECTION, "Pause", SDL_SCANCODE_RETURN, configFile);
+		bindsOut->cameraToggle = GetPrivateProfileInt(KEYBIND_SECTION, "ViewToggle", SDL_SCANCODE_F, configFile);
+		bindsOut->cameraSwivelLock = GetPrivateProfileInt(KEYBIND_SECTION, "SwivelLock", SDL_SCANCODE_GRAVE, configFile);
+		bindsOut->focus = GetPrivateProfileInt(CONTROLLER_SECTION, "Focus", SDL_SCANCODE_KP_ENTER, configFile);
+		bindsOut->caveman = GetPrivateProfileInt(CONTROLLER_SECTION, "Caveman", SDL_SCANCODE_E, configFile);
 
 		bindsOut->grind = GetPrivateProfileInt(KEYBIND_SECTION, "Grind", SDL_SCANCODE_KP_8, configFile);
 		bindsOut->grab = GetPrivateProfileInt(KEYBIND_SECTION, "Grab", SDL_SCANCODE_KP_6, configFile);
@@ -297,6 +281,7 @@ void loadControllerBinds(struct controllerbinds *bindsOut) {
 		bindsOut->cameraToggle = GetPrivateProfileInt(CONTROLLER_SECTION, "ViewToggle", CONTROLLER_BUTTON_BACK, configFile);
 		bindsOut->cameraSwivelLock = GetPrivateProfileInt(CONTROLLER_SECTION, "SwivelLock", CONTROLLER_BUTTON_RIGHTSTICK, configFile);
 		bindsOut->focus = GetPrivateProfileInt(CONTROLLER_SECTION, "Focus", CONTROLLER_BUTTON_LEFTSTICK, configFile);
+		bindsOut->caveman = GetPrivateProfileInt(CONTROLLER_SECTION, "Caveman", 0, configFile);
 
 		bindsOut->grind = GetPrivateProfileInt(CONTROLLER_SECTION, "Grind", CONTROLLER_BUTTON_Y, configFile);
 		bindsOut->grab = GetPrivateProfileInt(CONTROLLER_SECTION, "Grab", CONTROLLER_BUTTON_B, configFile);
