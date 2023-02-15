@@ -9,46 +9,6 @@
 #include <patch.h>
 #include <config.h>
 
-// Lookup table that translates from SDL Scancodes to Microsoft Virtual Keys
-uint8_t vkeyLUT[285] = {
-	0x00, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, // 0, 0, 0, 0, A, B, C, D - 8
-	0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, // E, F, G, H, I, J, K, L - 16
-	0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, // M, N, O, P, Q, R, S, T - 24
-	0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x31, 0x32, // U, V, W, X, Y, Z, 1, 2 - 32
-	0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, // 3, 4, 5, 6, 7, 8, 9, 0 - 40
-	VK_RETURN, VK_ESCAPE, VK_BACK, VK_TAB, VK_SPACE, VK_OEM_MINUS, VK_OEM_PLUS, VK_OEM_4, // RETURN, ESCAPE, BACKSPACE, TAB, SPACE, MINUS, EQUALS, L BRACKET - 48
-	VK_OEM_6, VK_OEM_5, 0x00, VK_OEM_1, VK_OEM_7, VK_OEM_3, VK_OEM_COMMA, VK_OEM_PERIOD, // R BRACKET, BACKSLASH, NONUSLASH, SEMICOLON, APOSTROPHE, GRAVE, COMMA, PERIOD - 56
-	VK_OEM_2, VK_CAPITAL, VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, // SLASH, CAPSLOCK, F1, F2, F3, F4, F5, F6 - 64
-	VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_PRINT, VK_SCROLL, // F7, F8, F9, F10, F11, F12, PRINT SCREEN, SCROLL LOCK - 72
-	VK_PAUSE, VK_INSERT, VK_HOME, VK_PRIOR, VK_DELETE, VK_END, VK_NEXT, VK_RIGHT, // PAUSE, INSERT, HOME, PAGEUP, DELETE, END, PAGEDOWN, RIGHT - 80
-	VK_LEFT, VK_DOWN, VK_UP, VK_NUMLOCK, VK_DIVIDE, VK_MULTIPLY, VK_SUBTRACT, VK_ADD, // LEFT, DOWN, UP, NUMLOCKCLEAR, KP DIVIDE, KP MULTIPLY, KP MINUS, KP PLUS - 88
-	VK_RETURN, VK_NUMPAD1, VK_NUMPAD2, VK_NUMPAD3, VK_NUMPAD4, VK_NUMPAD5, VK_NUMPAD6, VK_NUMPAD7, // KP ENTER, KP 1, KP 2, KP 3, KP 4, KP 5, KP 6, KP 7 - 96
-	VK_NUMPAD8, VK_NUMPAD9, VK_NUMPAD0, 0x00, 0x00, 0x00, 0x00, 0x00, // KP 8, KP 9, KP 0, KP PERIOD, NONUSBACKSLASH, APPLICATION, POWER, KP EQUALS - 104
-	VK_F13, VK_F14, VK_F15, VK_F16, VK_F17, VK_F18, VK_F19, VK_F20, // F13, F14, F15, F16, F17, F18, F19, F20 - 112
-	VK_F21, VK_F22, VK_F23, VK_F24, VK_EXECUTE, VK_HELP, 0x00, VK_SELECT, // F21, F22, F23, F24, EXECUTE, HELP, MENU, SELECT - 120
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // STOP, AGAIN, UNDO, CUT, COPY, PASTE, FIND, MUTE - 128
-	VK_VOLUME_UP, VK_VOLUME_DOWN, 0x00, 0x00, 0x00, VK_OEM_COMMA, 0x00, 0x00, // VOL UP, VOL DOWN, 0, 0, 0, KP COMMA, KP EQUALS AS400, INTERNATIONAL 1 - 136
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // INTERNATIONAL 2, INTERNATIONAL 3, INTERNATIONAL 4, INTERNATIONAL 5, INTERNATIONAL 6, INTERNATIONAL 7, INTERNATIONAL 8, INTERNATIONAL 9 - 144
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // LANG 1, LANG 2, LANG 3, LANG 4, LANG 5, LANG 6, LANG 7, LANG 8 - 152
-	0x00, 0x00, 0x00, VK_CANCEL, VK_CLEAR, VK_PRIOR, 0x00, VK_SEPARATOR, // LANG 9, ALTERASE, SYSREQ, CANCEL, CLEAR, PRIOR, RETURN2, SEPARATOR - 160
-	0x00, 0x00, 0x00, VK_CRSEL, VK_EXSEL, 0x00, 0x00, 0x00, // OUT, OPER, CLEARAGAIN, CRSEL, EXSEL, 0, 0, 0 - 168
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0, 0, 0, 0, 0, 0, 0, 0 - 176
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // KP 00, KP 000, THOUSANDS SEPARATOR, DECIMAL SEPARATOR, CURRENCY UNIT, CURRENCY SUBUNIT, KP L PAREN, KP R PAREN - 184
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // KP L BRACE, KP R BRACE, KP TAB, KP BACKSPACE, KP A, KP B, KP C, KP D - 192
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // KP E, KP F, KP XOR, KP POWER, KP PERCENT, KP LESS, KP GREATER, KP AMPERSAND - 200
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // KP DBL AMPERSAND, KP VERTICAL BAR, KP DBL VERTICAL BAR, KP COLON, KP HASH, KP SPACE, KP AT, KP EXCLAM - 208
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // KP MEM STORE, KP MEM RECALL, KP MEM CLEAR, KP MEM ADD, KP MEM SUBTRACT, KP MEM MULTIPLY, KP MEM DIVIDE, KP PLUS MINUS - 216
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // KP CLEAR, KP CLEAR ENTRY, KP BINARY, KP OCTAL, KP DECIMAL, KP HEXADECIMAL, 0, 0 - 224
-	VK_LCONTROL, VK_LSHIFT, VK_LMENU, VK_LWIN, VK_RCONTROL, VK_RSHIFT, VK_RMENU, VK_RWIN, // L CTRL, L SHIFT, L ALT, L GUI, R CTRL, R SHIFT, R ALT, R GUI - 232
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0, 0, 0, 0, 0, 0, 0, 0 - 240
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0, 0, 0, 0, 0, 0, 0, 0 - 248
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 0, 0, 0, 0, 0, 0, 0, 0 - 256
-	0x00, 0x00, VK_MEDIA_NEXT_TRACK, VK_MEDIA_PREV_TRACK, VK_MEDIA_STOP, VK_MEDIA_PLAY_PAUSE, VK_VOLUME_MUTE, VK_LAUNCH_MEDIA_SELECT, // 0, MODE, AUDIO NEXT, AUDIO PREV, AUDIO STOP, AUDIO PLAY, AUDIO MUTE, MEDIA SELECT
-	0x00, 0x00, 0x00, 0x00, VK_BROWSER_SEARCH, VK_BROWSER_HOME, VK_BROWSER_BACK, VK_BROWSER_FORWARD, // WWW, MAIL, CALCULATOR, COMPUTER, AC SEARCH, AC HOME, AC BACK, AC FORWARD
-	VK_BROWSER_STOP, VK_BROWSER_REFRESH, VK_BROWSER_FAVORITES, 0x00, 0x00, 0x00, 0x00, 0x00, // AC STOP, AC REFRESH, AC BOOKMARKS, BRIGHTNESS DOWN, BRIGHTNESS UP, DISPLAY SWITCH, KB DILLUM TOGGLE, KB DILLUM DOWN
-	0x00, 0x00, VK_SLEEP, VK_LAUNCH_APP1, 0x00 // KB DILLUM UP, EJECT, SLEEP, APP1, 0
-};
-
 typedef struct {
 	uint32_t vtablePtr;
 	uint32_t node;
@@ -87,29 +47,10 @@ typedef struct {
 
 	uint32_t pressed;
 	uint32_t start_or_a_pressed;
-	//uint16_t unk14;
-	//needs start_or_a_pressed
 	// 238
 } device;
 
-typedef struct {
-	uint32_t unk1;
-	uint32_t unk2;
-	uint32_t unk3;
-	uint32_t unk4;
-	//16
-	uint32_t unk5;
-	uint32_t unk6;
-	uint32_t unk7;
-	HINSTANCE hinstance;
-	//32
-	HWND hwnd;
-	uint32_t dinputInterface;
-} manager;
-
 void patchPs2Buttons();
-
-int (__stdcall *menuOnScreen)() = (void *)0x0044a540;
 
 int controllerCount;
 int controllerListSize;
@@ -118,12 +59,16 @@ struct inputsettings inputsettings;
 struct keybinds keybinds;
 struct controllerbinds padbinds;
 
-uint8_t isCursorActive = 1;
 uint8_t isUsingKeyboard = 1;
+
+struct playerslot {
+	SDL_GameController *controller;
+	uint8_t lockedOut;	// after sign-in, a controller is "locked out" until all of its buttons are released
+};
 
 #define MAX_PLAYERS 2
 uint8_t numplayers = 0;
-SDL_GameController *players[MAX_PLAYERS] = { NULL, NULL };
+struct playerslot players[MAX_PLAYERS] = { { NULL, 0 }, { NULL, 0 } };
 
 void setUsingKeyboard(uint8_t usingKeyboard) {
 	isUsingKeyboard = usingKeyboard;
@@ -159,15 +104,17 @@ void addplayer(SDL_GameController *controller) {
 		uint8_t found = 0;
 		int i = 0;
 		for (; i < MAX_PLAYERS; i++) {
-			if (!players[i]) {
+			if (!players[i].controller) {
 				found = 1;
 				break;
 			}
 		}
 		if (found) {
 			SDL_GameControllerSetPlayerIndex(controller, i);
-			players[i] = controller;
+			players[i].controller = controller;
 			numplayers++;
+
+			players[i].lockedOut = 1;
 
 			printf("Added player %d: %s\n", i + 1, SDL_GameControllerName(controller));
 
@@ -180,10 +127,10 @@ void addplayer(SDL_GameController *controller) {
 
 void pruneplayers() {
 	for (int i = 0; i < MAX_PLAYERS; i++) {
-		if (players[i] && !SDL_GameControllerGetAttached(players[i])) {
+		if (players[i].controller && !SDL_GameControllerGetAttached(players[i].controller)) {
 			printf("Pruned player %d\n", i + 1);
 
-			players[i] = NULL;
+			players[i].controller = NULL;
 			numplayers--;
 			printf("Remaining players: %d\n", numplayers);
 		}
@@ -205,7 +152,7 @@ void removeController(SDL_GameController *controller) {
 		int playerIdx = SDL_GameControllerGetPlayerIndex(controller);
 		if (playerIdx != -1) {
 			printf("Removed player %d\n", playerIdx + 1);
-			players[playerIdx] = NULL;
+			players[playerIdx].controller = NULL;
 			numplayers--;
 		}
 
@@ -487,15 +434,14 @@ void pollKeyboard(device *dev) {
 
 // returns 1 if a text entry prompt is on-screen so that keybinds don't interfere with text entry confirmation/cancellation
 uint8_t isKeyboardTyping() {
-	uint8_t *keyboard_on_screen = 0x0074fb42;
+	uint8_t *keyboard_on_screen = 0x0074fb42;	// 006ea802
 
 	return *keyboard_on_screen;
 }
 
 void do_key_input(SDL_KeyCode key) {
-	void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;
-	void (*key_input_other)(int32_t key, uint32_t param) = (void *)0x0062b4bc;
-	uint8_t *keyboard_on_screen = 0x0074fb42;
+	void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;	// 0062b3a0
+	uint8_t *keyboard_on_screen = 0x0074fb42;	// 006ea802
 
 	if (!*keyboard_on_screen) {
 		return;
@@ -675,16 +621,32 @@ void processEvent(SDL_Event *e) {
 			return;
 		case SDL_CONTROLLERBUTTONDOWN: {
 			SDL_GameController *controller = SDL_GameControllerFromInstanceID(e->cdevice.which);
-			if (SDL_GameControllerGetPlayerIndex(controller) == -1) {
+
+			int idx = SDL_GameControllerGetPlayerIndex(controller);
+			if (idx == -1) {
 				addplayer(controller);
+			} else if (players[idx].lockedOut) {
+				players[idx].lockedOut++;
 			}
+
+			setUsingKeyboard(0);
+			return;
 		}
-			
+		case SDL_CONTROLLERBUTTONUP: {
+			SDL_GameController *controller = SDL_GameControllerFromInstanceID(e->cdevice.which);
+
+			int idx = SDL_GameControllerGetPlayerIndex(controller);
+			if (idx != -1 && players[idx].lockedOut) {
+				players[idx].lockedOut--;
+			}
+
+			return;
+		}
 		case SDL_CONTROLLERAXISMOTION:
 			setUsingKeyboard(0);
 			return;
 		case SDL_QUIT: {
-			int *shouldQuit = 0x008b2198;
+			int *shouldQuit = 0x008b2198;	// 0084aa80
 			*shouldQuit = 1;
 			return;
 		}
@@ -775,12 +737,10 @@ void __cdecl processController(device *dev) {
 			pollKeyboard(dev);
 		}
 	}
-
-	// TODO: maybe smart selection of active controller?
 	
-	for (int i = 0; i < controllerCount; i++) {
-		if (SDL_GameControllerGetPlayerIndex(controllerList[i]) == dev->port) {
-			pollController(dev, controllerList[i]);
+	if (dev->port < MAX_PLAYERS) {
+		if (players[dev->port].controller && !players[dev->port].lockedOut) {
+			pollController(dev, players[dev->port].controller);
 		}
 	}
 
@@ -801,8 +761,8 @@ void __cdecl processController(device *dev) {
 
 	// keyboard text entry doesn't work unless these values are set
 	uint8_t *unk1 = 0x0074fb42;
-	uint8_t *unk2 = 0x00751dc0;
-	uint8_t *unk3 = 0x0074fb43;
+	uint8_t *unk2 = 0x00751dc0;	// 006eca80
+	uint8_t *unk3 = 0x0074fb43;	// 006ea803
 
 	*unk2 = 1;
 	*unk3 = 0;
@@ -1170,22 +1130,22 @@ void patchPs2Buttons() {
 void patchInput() {
 	// patch SIO::Device
 	// process
-	patchThisToCdecl((void *)0x0062b090, &processController);
+	patchThisToCdecl((void *)0x0062b090, &processController);	// 0062b240
 	patchByte((void *)(0x0062b090 + 7), 0xC3);
 
 	// set_actuator
 	// don't call read_data in activate_actuators
-	patchNop(0x0062ade1, 5);
-	patchCall(0x0062ae64, set_actuators);
-	patchCall(0x0062aec7, set_actuators);
-	patchCall(0x0062af6f, set_actuators);
-	patchCall(0x0062b001, set_actuators);
-	patchCall(0x0062b05f, set_actuators);
+	patchNop(0x0062ade1, 5);	// 0062af81
+	patchCall(0x0062ae64, set_actuators);	// 62b004
+	patchCall(0x0062aec7, set_actuators);	// 62b067
+	patchCall(0x0062af6f, set_actuators);	// 62b10f
+	patchCall(0x0062b001, set_actuators);	// 62b1a1
+	patchCall(0x0062b05f, set_actuators);	// 62b1ff
 	
 	// init input patch - nop direct input setup
-	patchNop(0x006b4c23, 45);
+	patchNop(0x006b4c23, 45);	// 0066ab45
 	patchCall(0x006b4c23 + 5, &initManager);
 
 	// some config call relating to the dinput devices
-	patchNop(0x0054481c, 5);
+	patchNop(0x0054481c, 5);	// 00544aec
 }

@@ -147,8 +147,8 @@ void createSDLWindow() {
 	*isFocused = 1;
 
 	// patch resolution setting
-	patchDWord(0x0053515a + 4, resX);
-	patchDWord(0x0053518a + 4, resY);
+	patchDWord(0x0053515a + 4, resX);	// 0053536a
+	patchDWord(0x0053518a + 4, resY);	// 0053539a
 	
 	SDL_ShowCursor(0);
 }
@@ -159,10 +159,10 @@ void patchWindow() {
 
 	//patchDWord((void *)0x00409d55, style);
 	//patchDWord((void *)0x00409df4, style);
-	patchCall(0x006b3290, createSDLWindow);
+	patchCall(0x006b3290, createSDLWindow);	// 006691a0
 	patchByte(0x006b3290 + 5, 0xc3);
 
-	patchDWord(0x0050d025 + 1, &resbuffer);
+	patchDWord(0x0050d025 + 1, &resbuffer);	// 0050d195
 
 	//patchNop(0x005350ea, 0x100);	// don't set present params
 	//patchNop(0x005350ea, 30);
@@ -173,7 +173,7 @@ void patchWindow() {
 
 	//patchNop(0x00535244, 8);	// don't overwrite resolution
 
-	patchNop(0x005352b3, 14);	// don't move window to corner
+	patchNop(0x005352b3, 14);	// don't move window to corner	// 005354c3
 }
 
 #define GRAPHICS_SECTION "Graphics"

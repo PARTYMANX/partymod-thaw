@@ -157,7 +157,7 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 			// Return FALSE to fail DLL load.
 
 			// install patches
-			patchCall((void *)(0x00544060), &(initPatch));
+			patchCall((void *)(0x00544060), &(initPatch));	// 00544330
 			//patchNotCD();
 			patchWindow();
 			//patchNoLauncher();
