@@ -12,26 +12,9 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-//int *resX = 0x00851084;
-//int *resY = 0x00851088;
-//int *bitDepth = 0x0085108c;
-
-uint8_t *highBandwidth = 0x005b4e75;
-uint8_t *shadows = 0x005b4e76;
-uint8_t *particles = 0x005b4e77;
-uint8_t *animatingTextures = 0x005b4e78;
-uint8_t *playIntro = 0x005b4e79;
-uint8_t *customSettings = 0x008510b1;
-uint8_t *distanceFog = 0x008510b2;
-uint8_t *lowDetailModels = 0x008510b3;
-uint8_t *frameCap = 0x008510b4;
-
 uint8_t isWindowed = 0;
 uint8_t *isFullscreen = 0x00858da7;
 HWND *hwnd = 0x008b2194;
-
-float *aspectRatio1 = 0x0058eb14;
-float *aspectRatio2 = 0x0058d96c;
 
 uint8_t resbuffer[100000];	// buffer needed for high resolutions
 
@@ -40,40 +23,11 @@ uint8_t borderless;
 int resX;
 int resY;
 
-typedef struct {
-	uint32_t BackBufferWidth;
-	uint32_t BackBufferHeight;
-	uint32_t BackBufferFormat;
-	uint32_t BackBufferCount;
-	uint32_t MultiSampleType;
-	int32_t MultiSampleQuality;
-	uint32_t SwapEffect;
-	HWND hDeviceWindow;
-	uint8_t Windowed;
-	uint8_t EnableAutoDepthStencil;
-	uint32_t AutoDepthStencilFormat;
-	int32_t Flags;
-	uint32_t FullScreen_RefreshRateInHz;
-	uint32_t PresentationInterval;
-} d3dPresentParams;
-
-//d3dPresentParams presentParams;
-
 SDL_Window *window;
 
 void dumpSettings() {
 	printf("RESOLUTION X: %d\n", resX);
 	printf("RESOLUTION Y: %d\n", resY);
-	//printf("BIT DEPTH: %d\n", *bitDepth);
-	printf("HIGH BANDWIDTH: %02x\n", *highBandwidth);
-	printf("PLAY INTRO: %02x\n", *playIntro);
-	printf("CUSTOM SETTINGS: %02x\n", *customSettings);
-	printf("ANIMATING TEXTURES: %02x\n", *animatingTextures);
-	printf("SHADOWS: %02x\n", *shadows);
-	printf("PARTICLES: %02x\n", *particles);
-	printf("DISTANCE FOG: %02x\n", *distanceFog);
-	printf("LOW DETAIL MODELS: %02x\n", *lowDetailModels);
-	printf("LOCK TO 60HZ: %02x\n", *frameCap);
 }
 
 void enforceMaxResolution() {
@@ -147,33 +101,20 @@ void createSDLWindow() {
 	*isFocused = 1;
 
 	// patch resolution setting
-	patchDWord(0x0053515a + 4, resX);	// 0053536a
-	patchDWord(0x0053518a + 4, resY);	// 0053539a
+	patchDWord(0x0053515a + 4, resX);
+	patchDWord(0x0053518a + 4, resY);
 	
 	SDL_ShowCursor(0);
 }
 
 void patchWindow() {
 	// replace the window with an SDL2 window.  this kind of straddles the line between input and config
-	//DWORD style = WS_CAPTION | WS_ICONIC | WS_CLIPCHILDREN | WS_SYSMENU | WS_MINIMIZEBOX | WS_VISIBLE | WS_BORDER;
-
-	//patchDWord((void *)0x00409d55, style);
-	//patchDWord((void *)0x00409df4, style);
-	patchCall(0x006b3290, createSDLWindow);	// 006691a0
+	patchCall(0x006b3290, createSDLWindow);
 	patchByte(0x006b3290 + 5, 0xc3);
 
-	patchDWord(0x0050d025 + 1, &resbuffer);	// 0050d195
+	patchDWord(0x0050d025 + 1, &resbuffer);
 
-	//patchNop(0x005350ea, 0x100);	// don't set present params
-	//patchNop(0x005350ea, 30);
-	//patchNop(0x0053513d, 173);
-
-	//patchNop(0x005340df, 6);
-	//patchNop(0x005340ef, 6);	// do NOT overwrite resolution
-
-	//patchNop(0x00535244, 8);	// don't overwrite resolution
-
-	patchNop(0x005352b3, 14);	// don't move window to corner	// 005354c3
+	patchNop(0x005352b3, 14);	// don't move window to corner
 }
 
 #define GRAPHICS_SECTION "Graphics"

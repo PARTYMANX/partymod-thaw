@@ -112,13 +112,15 @@ void addplayer(SDL_GameController *controller) {
 		if (found) {
 			SDL_GameControllerSetPlayerIndex(controller, i);
 			players[i].controller = controller;
+
+			if (numplayers > 0) {
+				players[i].lockedOut = 1;
+				SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0x7fff, 0x7fff, 250);
+			}
+			
 			numplayers++;
 
-			players[i].lockedOut = 1;
-
 			printf("Added player %d: %s\n", i + 1, SDL_GameControllerName(controller));
-
-			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0xffff, 0xffff, 250);
 		}
 	} else {
 		printf("Already two players, not adding\n");
@@ -434,14 +436,14 @@ void pollKeyboard(device *dev) {
 
 // returns 1 if a text entry prompt is on-screen so that keybinds don't interfere with text entry confirmation/cancellation
 uint8_t isKeyboardTyping() {
-	uint8_t *keyboard_on_screen = 0x0074fb42;	// 006ea802
+	uint8_t *keyboard_on_screen = 0x0074fb42;
 
 	return *keyboard_on_screen;
 }
 
 void do_key_input(SDL_KeyCode key) {
-	void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;	// 0062b3a0
-	uint8_t *keyboard_on_screen = 0x0074fb42;	// 006ea802
+	void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;
+	uint8_t *keyboard_on_screen = 0x0074fb42;
 
 	if (!*keyboard_on_screen) {
 		return;
@@ -614,9 +616,7 @@ void processEvent(SDL_Event *e) {
 			printf("Joystick added: %s\n", SDL_JoystickNameForIndex(e->jdevice.which));
 			return;
 		case SDL_KEYDOWN: 
-			//printf("KEY: %s\n", SDL_GetKeyName(e->key.keysym.sym));
 			setUsingKeyboard(1);
-			//setActiveController(NULL);
 			do_key_input(e->key.keysym.sym);
 			return;
 		case SDL_CONTROLLERBUTTONDOWN: {
@@ -650,20 +650,6 @@ void processEvent(SDL_Event *e) {
 			*shouldQuit = 1;
 			return;
 		}
-		/*case SDL_WINDOWEVENT: {
-			if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-				int *isFocused = 0x008a35d5;
-				int *other_isFocused = 0x0072e850;
-				*isFocused = 1;
-				return;
-			} else if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-				int *isFocused = 0x008a35d5;
-				int *other_isFocused = 0x0072e850;
-				*isFocused = 0;
-				//*other_isFocused = 0;
-				return;
-			}
-		}*/
 		default:
 			return;
 	}
@@ -759,10 +745,9 @@ void __cdecl processController(device *dev) {
 		dev->start_or_a_pressed = 0;
 	}
 
-	// keyboard text entry doesn't work unless these values are set
-	uint8_t *unk1 = 0x0074fb42;
-	uint8_t *unk2 = 0x00751dc0;	// 006eca80
-	uint8_t *unk3 = 0x0074fb43;	// 006ea803
+	// keyboard text entry doesn't work unless these values are set correctly
+	uint8_t *unk2 = 0x00751dc0;
+	uint8_t *unk3 = 0x0074fb43;
 
 	*unk2 = 1;
 	*unk3 = 0;
@@ -1135,17 +1120,17 @@ void patchInput() {
 
 	// set_actuator
 	// don't call read_data in activate_actuators
-	patchNop(0x0062ade1, 5);	// 0062af81
-	patchCall(0x0062ae64, set_actuators);	// 62b004
-	patchCall(0x0062aec7, set_actuators);	// 62b067
-	patchCall(0x0062af6f, set_actuators);	// 62b10f
-	patchCall(0x0062b001, set_actuators);	// 62b1a1
-	patchCall(0x0062b05f, set_actuators);	// 62b1ff
+	patchNop(0x0062ade1, 5);
+	patchCall(0x0062ae64, set_actuators);
+	patchCall(0x0062aec7, set_actuators);
+	patchCall(0x0062af6f, set_actuators);
+	patchCall(0x0062b001, set_actuators);
+	patchCall(0x0062b05f, set_actuators);
 	
 	// init input patch - nop direct input setup
-	patchNop(0x006b4c23, 45);	// 0066ab45
+	patchNop(0x006b4c23, 45);
 	patchCall(0x006b4c23 + 5, &initManager);
 
 	// some config call relating to the dinput devices
-	patchNop(0x0054481c, 5);	// 00544aec
+	patchNop(0x0054481c, 5);
 }
