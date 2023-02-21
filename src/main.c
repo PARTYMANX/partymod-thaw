@@ -115,7 +115,7 @@ void initPatch() {
 
 	//patchResolution();
 
-	//initScriptPatches();
+	initScriptPatches();
 
 	/*int disableMovies = getIniBool("Miscellaneous", "NoMovie", 0, configFile);
 	if (disableMovies) {
@@ -169,7 +169,7 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 			patchInput();
 			//patchHwType();
 			//patchLoadConfig();
-			//patchScriptHook();
+			patchScriptHook();
 
 			break;
 

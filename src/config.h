@@ -73,6 +73,7 @@ struct controllerbinds {
 	controllerButton cameraSwivelLock;
 	controllerButton focus;
 	controllerButton caveman;
+	// TODO: add spine button
 
 	controllerButton grind;
 	controllerButton grab;

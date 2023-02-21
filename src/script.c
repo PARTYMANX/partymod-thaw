@@ -11,99 +11,111 @@
 
 #include <hash.h>
 
-INCBIN(OptionsMenu, "patches/optionsmenu.bps");
+// idea for how script patches will work: 
+// we hook parseQB which takes the filename and qb contents (sadly, not size)
+// if a filename matches a target, we allocate a new struct if it doesn't already exist (probably just in a hashmap)
+// we calculate the size by implementing skipqb basically (fuck.), then throw that qb into the patcher
+// then we simply patch the file, store it in our new buffer and pass it back to parseqb
+
+INCBIN(groundtricks, "patches/groundtricks.bps");
 
 map_t *scriptMap;
+map_t *patchMap;
 
 int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen, uint8_t **output, size_t *outputLen);
 
-void __stdcall dumpScript(char *filename, int unk) {
-	//printf("LOADING SCRIPT %s\n", filename);
-
-	char filenameBuffer[1024];
-	sprintf(filenameBuffer, "%sdata\\%s", executableDirectory, filename);
-
-	FILE *f = fopen(filenameBuffer, "rb");
-
-	if (f) {
-		// get file length
-		fseek(f, 0, SEEK_END);
-		size_t filesize = ftell(f);
-		fseek(f, 0, SEEK_SET);
-
-		uint8_t *buffer = malloc(filesize);
-
-		if (buffer) {
-			fread(buffer, 1, filesize, f);
-
-			void (__stdcall *unknown1)(char *, uint8_t *, int) = (void*)0x0042b3d0;
-
-			uint8_t *patch = map_get(scriptMap, filename, strlen(filename));
-			if (patch) {
-				printf("Applying patch for %s\n", filename);
-				size_t patchLen = map_getsz(scriptMap, filename, strlen(filename));
-				uint8_t *patchedBuffer = NULL;
-				size_t patchedBufferLen = 0;
-
-				int result = applyPatch(patch, patchLen, buffer, filesize, &patchedBuffer, &patchedBufferLen);
-				
-				if (!result) {
-					unknown1(filename, patchedBuffer, unk);
-				} else {
-					unknown1(filename, buffer, unk);
-					printf("Patch failed! Loading original script\n");
-				}
-
-				free(patchedBuffer);
-			} else {
-				unknown1(filename, buffer, unk);
-			}
-
-			free(buffer);
-		}
-
-		fclose(f);
-	} else {
-		printf("FAILED TO OPEN SCRIPT %s: %s\n", filenameBuffer, strerror(errno));
-	}
-};
-
 void registerPatch(char *name, unsigned int sz, char *data) {
-	map_put(scriptMap, name, strlen(name), data, sz);
+	map_put(patchMap, name, strlen(name), data, sz);
 	printf("Registered patch for %s\n", name);
 }
 
 void initScriptPatches() {
+	patchMap = map_alloc(1, NULL, NULL);
 	scriptMap = map_alloc(1, NULL, NULL);
 
-	registerPatch("scripts\\optionsmenu.qb", gOptionsMenuSize, gOptionsMenuData);
+	registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
+}
+
+uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b00;
+uint32_t (__cdecl *unk_0040a8f0)(uint32_t, char *) = (void *)0x0040a8f0;
+void (__cdecl *unk_0040a110)(uint8_t *, uint8_t *, void *, uint32_t, int) = (void *)0x0040a110;
+
+void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicateSymbols) {
+	// TODO: match with map
+	// if it's in the map, get the qb buffer
+	// first we have to get its length by iterating through the qb.  which could be a pain in the ass
+	// nvm.  it's literally the second dword
+
+	// TODO: slight change: because this isn't done when we're reading the script (and because of streaming), it's smarter to keep a table of our patched scripts as well as potential patches
+	uint8_t *scriptOut;
+
+	//printf("LOADING SCRIPT %s\n", filename);
+
+	uint8_t *patch = map_get(patchMap, filename, strlen(filename));
+	if (patch) {
+		uint32_t filesize = ((uint32_t *)script)[1];
+		uint8_t *patchedScript = map_get(scriptMap, filename, strlen(filename));
+		if (patchedScript) {
+			scriptOut = patchedScript;
+		} else {
+			printf("Applying patch for %s\n", filename);
+			size_t patchLen = map_getsz(patchMap, filename, strlen(filename));
+			uint8_t *patchedBuffer = NULL;
+			size_t patchedBufferLen = 0;
+
+			int result = applyPatch(patch, patchLen, script, filesize, &patchedBuffer, &patchedBufferLen);
+				
+			if (!result) {
+				map_put(scriptMap, filename, strlen(filename), patchedBuffer, patchedBufferLen);
+
+				scriptOut = patchedBuffer;
+			} else {
+				scriptOut = script;
+				printf("Patch failed! Continuing with original script\n");
+			}
+		}
+	} else {
+		scriptOut = script;
+	}
+
+	// original function
+	uint32_t crc = their_crc32(filename);
+	uint32_t idk = unk_0040a8f0(crc, filename);
+	unk_0040a110(scriptOut, scriptOut, ((void *)0x00417170), crc, idk & 0xffffff00 | (assertDuplicateSymbols != 0));
+
+	script[0] = 1;
+
+	/*__asm {
+		push esi
+		push edi
+		mov edi, dword ptr [esp + 0x0c]
+		push edi
+		call crc_32
+		mov esi, eax
+		push edi
+		push esi
+		call unk_0040a8f0
+		mov edx, dword ptr [esp + 0x20]
+		test edx, edx
+		setnz al
+		push eax
+		push esi
+		mov esi, dword ptr [esp + 0x24]
+		push 0x00417170
+		push esi
+		push esi
+		call unk_0040a8f0
+		add esp, 0x20
+		pop edi
+		mov byte ptr [esi], 0x01
+		pop esi
+		ret
+	}*/
 }
 
 void patchScriptHook() {
-	// patch the function that loads scripts
-	patchNop((void *)0x0042b354, 115);
-	// push param1
-	// 8b 5c 24 18	MOV dword ptr [ESP + 0x18],EBX
-	patchByte(0x0042b354 + 0, 0x8b);
-	patchByte(0x0042b354 + 1, 0x5c);
-	patchByte(0x0042b354 + 2, 0x24);
-	patchByte(0x0042b354 + 3, 0x18);
-	// 53	PUSH EBX
-	patchByte(0x0042b354 + 4, 0x53);
-
-	// push param2
-	// 8b 5c 24 18	MOV dword ptr [ESP + 0x18],EBX
-	patchByte(0x0042b354 + 5, 0x8b);
-	patchByte(0x0042b354 + 6, 0x5c);
-	patchByte(0x0042b354 + 7, 0x24);
-	patchByte(0x0042b354 + 8, 0x18);
-	// 53	PUSH EBX
-	patchByte(0x0042b354 + 9, 0x53);
-
-	// call our file load
-	patchCall(0x0042b354 + 10, dumpScript);
-
-	// the stack should be clean at this point
+	patchCall(0x0040de30, ParseQbWrapper);
+	patchByte(0x0040de30, 0xe9);	// change CALL to JMP
 }
 
 const uint32_t crc32lut[] = {

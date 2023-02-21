@@ -44,7 +44,7 @@ map_t *map_alloc(size_t len, compareFunc_t cmp, hashFunc_t hash) {
 }
 
 void map_free(map_t *tbl) {
-	for (struct bucket *i = tbl->buckets; i < tbl->buckets + tbl->len; i++) {	// 0x0000017ec115a010, 0x0000017ec115a020
+	for (struct bucket *i = tbl->buckets; i < tbl->buckets + tbl->len; i++) {
 		struct bucketNode *j = i->head;
 		while (j) {
 			free(j->key);

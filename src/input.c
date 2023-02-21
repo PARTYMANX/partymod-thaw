@@ -298,14 +298,19 @@ void pollController(device *dev, SDL_GameController *controller) {
 		}
 
 		if (inputsettings.isPs2Controls) {
-			// big hack: bike backwards revert looks for caveman button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
+			// big hack: bike backwards revert looks for white button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
 			if (getButton(controller, padbinds.switchRevert)) {
-				dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+				dev->controlData[20] |= 0x01 << 1;
 			} 
 		} else {
-			if (getButton(controller, padbinds.caveman)) {
-				dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
-			} 
+			if (getButton(controller, padbinds.nollie)) {
+				dev->controlData[20] |= 0x01 << 1;
+			}
+
+			// caveman
+			if (getButton(controller, padbinds.switchRevert)) {
+				dev->controlData[20] |= 0x01 << 0;
+			}
 		}
 		
 		// sticks
@@ -352,14 +357,19 @@ void pollKeyboard(device *dev) {
 	}
 
 	if (inputsettings.isPs2Controls) {
-		// big hack: bike backwards revert looks for caveman button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
+		// big hack: bike backwards revert looks for white button specifically, so just bind that to the revert button when in ps2 mode as there are no side effects
 		if (keyboardState[keybinds.switchRevert]) {
-			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
+			dev->controlData[20] |= 0x01 << 1;
 		} 
 	} else {
-		if (keyboardState[keybinds.caveman]) {
-			dev->controlData[20] = 0xFF;	// caveman button.  a bit of a hack but i don't know what bit(s) the game is looking for and it ultimately doesn't matter as no other button uses these
-		} 
+		if (keyboardState[keybinds.nollie]) {
+			dev->controlData[20] |= 0x01 << 1;
+		}
+
+		// caveman
+		if (keyboardState[keybinds.switchRevert]) {
+			dev->controlData[20] |= 0x01 << 0;
+		}
 	}
 
 	// shoulders
@@ -732,6 +742,7 @@ void __cdecl processController(device *dev) {
 
 	dev->controlData[2] = ~dev->controlData[2];
 	dev->controlData[3] = ~dev->controlData[3];
+	//dev->controlData[20] = ~dev->controlData[20];
 
 	if (0xFFFF ^ ((dev->controlData[2] << 8 ) | dev->controlData[3])) {
 		dev->pressed = 1;
