@@ -14,6 +14,12 @@
 
 uint8_t isWindowed = 0;
 uint8_t *isFullscreen = 0x00858da7;
+uint32_t *resolution_setting = 0x008b455c;
+uint32_t *antialiasing = 0x008b4554;
+uint32_t *hq_shadows = 0x008b4555;
+uint32_t *distance_clipping = 0x008b455a;
+uint32_t *clipping_distance = 0x008b4564;	// int from 1-100
+uint32_t *fog = 0x008b4556;
 HWND *hwnd = 0x008b2194;
 
 uint8_t resbuffer[100000];	// buffer needed for high resolutions
@@ -22,6 +28,7 @@ uint8_t borderless;
 
 int resX;
 int resY;
+float aspect_ratio;
 
 SDL_Window *window;
 
@@ -71,6 +78,8 @@ void createSDLWindow() {
 
 	enforceMaxResolution();
 
+	resolution_setting = 0;
+
 	if (resX == 0 || resY == 0) {
 		SDL_DisplayMode displayMode;
 		SDL_GetDesktopDisplayMode(0, &displayMode);
@@ -107,14 +116,32 @@ void createSDLWindow() {
 	SDL_ShowCursor(0);
 }
 
+float __cdecl getScreenAngleFactor() {
+	return ((float)resX / (float)resY) / (4.0f / 3.0f);
+}
+
+float *screenAspectRatio = 0x007d0a40;
+void __cdecl setAspectRatio(float aspect) {
+	*screenAspectRatio = (float)resX / (float)resY;
+}
+
 void patchWindow() {
 	// replace the window with an SDL2 window.  this kind of straddles the line between input and config
 	patchCall(0x006b3290, createSDLWindow);
 	patchByte(0x006b3290 + 5, 0xc3);
-
+	
 	patchDWord(0x0050d025 + 1, &resbuffer);
 
 	patchNop(0x005352b3, 14);	// don't move window to corner
+
+	patchNop(0x006b4c17, 5);	// don't load config
+
+	patchCall(0x004ed8b0, setAspectRatio);
+	patchByte(0x004ed8b0, 0xe9);	// change CALL to JMP
+
+	patchCall(0x004ed8f0, getScreenAngleFactor);
+	patchByte(0x004ed8f0, 0xe9);	// change CALL to JMP
+
 }
 
 #define GRAPHICS_SECTION "Graphics"
@@ -134,15 +161,11 @@ void loadSettings() {
 	char configFile[1024];
 	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
 
-	//GetPrivateProfileString("Game", "HighBandwidth", "", )
-	//*highBandwidth = 1;	// it's 2022, very few people are probably on dial up, and probably generally not gaming
-	//*playIntro = getIniBool("Miscellaneous", "PlayIntro", 1, configFile);
-
-	//*animatingTextures = getIniBool("Graphics", "AnimatedTextures", 1, configFile);
-	//*particles = getIniBool("Graphics", "Particles", 1, configFile);
-	//*shadows = getIniBool("Graphics", "Shadows", 1, configFile);
-	//*distanceFog = getIniBool("Graphics", "DistanceFog", 0, configFile);
-	//*lowDetailModels = getIniBool("Graphics", "LowDetailModels", 0, configFile);
+	*antialiasing = getIniBool("Graphics", "AntiAliasing", 1, configFile);
+	*hq_shadows = getIniBool("Graphics", "HQShadows", 1, configFile);
+	*distance_clipping = getIniBool("Graphics", "DistanceClipping", 0, configFile);
+	*clipping_distance = getIniBool("Graphics", "ClippingDistance", 1, configFile);
+	*fog = getIniBool("Graphics", "Fog", 0, configFile);
    
 	resX = GetPrivateProfileInt("Graphics", "ResolutionX", 640, configFile);
 	resY = GetPrivateProfileInt("Graphics", "ResolutionY", 480, configFile);

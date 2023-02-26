@@ -11,18 +11,117 @@
 
 #include <hash.h>
 
-// idea for how script patches will work: 
-// we hook parseQB which takes the filename and qb contents (sadly, not size)
-// if a filename matches a target, we allocate a new struct if it doesn't already exist (probably just in a hashmap)
-// we calculate the size by implementing skipqb basically (fuck.), then throw that qb into the patcher
-// then we simply patch the file, store it in our new buffer and pass it back to parseqb
-
 INCBIN(groundtricks, "patches/groundtricks.bps");
+
+char scriptCacheFile[1024];
 
 map_t *scriptMap;
 map_t *patchMap;
 
+#define SCRIPT_CACHE_FILE_NAME "scriptCache.qbc"
+#define CACHE_MAGIC_NUMBER 0x49676681 // QBC1
+
+typedef struct {
+	size_t filenameLen;
+	char *filename;
+	uint32_t checksum;	// this is the checksum of the patch this script was made against
+	size_t scriptLen;
+	uint8_t *script;
+} scriptCacheEntry;
+
+void saveScriptCache(char *filename) {
+	FILE *file = fopen(filename, "wb");
+
+	if (file) {
+		uint32_t magicNum = CACHE_MAGIC_NUMBER;
+		fwrite(&magicNum, sizeof(uint32_t), 1, file);
+		fwrite(&scriptMap->entries, sizeof(size_t), 1, file);
+		printf("Saving %d entries\n", scriptMap->entries);
+
+		for (int i = 0; i < scriptMap->len; i++) {
+			struct bucketNode *node = scriptMap->buckets[i].head;
+			while (node) {
+				scriptCacheEntry *entry = node->val;
+
+				fwrite(&entry->filenameLen, sizeof(size_t), 1, file);
+				fwrite(entry->filename, entry->filenameLen, 1, file);
+				fwrite(&entry->checksum, sizeof(uint32_t), 1, file);
+				fwrite(&entry->scriptLen, sizeof(size_t), 1, file);
+				fwrite(entry->script, entry->scriptLen, 1, file);
+
+				node = node->next;
+			}
+		}
+
+		fclose(file);
+	} else {
+		printf("FAILED TO OPEN FILE!!\n");
+	}
+}
+
+int loadScriptCache(char *filename) {
+	FILE *file = fopen(filename, "rb");
+
+	if (file) {
+		uint32_t magicNum = 0;
+		fread(&magicNum, sizeof(uint32_t), 1, file);
+
+		if (magicNum != CACHE_MAGIC_NUMBER) {
+			goto failure;
+		}
+
+		size_t entryCount = 0;
+		if (!fread(&entryCount, sizeof(size_t), 1, file)) {
+			goto failure;
+		}
+		printf("%d entries\n", entryCount);
+
+		for (int i = 0; i < entryCount; i++) {
+			scriptCacheEntry entry;
+
+			if (!fread(&entry.filenameLen, sizeof(size_t), 1, file)) {
+				goto failure;
+			}
+
+			entry.filename = calloc(entry.filenameLen + 1, 1);
+			if (!entry.filename || !fread(entry.filename, entry.filenameLen, 1, file)) {
+				goto failure;	
+			}
+			entry.filename[entry.filenameLen] = '\0';
+
+			if (!fread(&entry.checksum, sizeof(uint32_t), 1, file)) {
+				goto failure;
+			}
+
+			if (!fread(&entry.scriptLen, sizeof(size_t), 1, file)) {
+				goto failure;
+			}
+
+			entry.script = malloc(entry.scriptLen);
+			if (!entry.script || !fread(entry.script, entry.scriptLen, 1, file)) {
+				goto failure;	
+			}
+
+			map_put(scriptMap, entry.filename, entry.filenameLen, &entry, sizeof(entry));
+
+			printf("Loaded cache entry for %s, patch checksum %08x\n", entry.filename, entry.checksum);
+		}
+
+		fclose(file);
+		return 0;
+
+	failure:
+		printf("Failed to read script cache file!!  Cache may be corrupt and will be rewritten...\n");
+		fclose(file);
+		return -1;
+	} else {
+		printf("Script cache does not exist\n");
+		return -1;
+	}
+}
+
 int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen, uint8_t **output, size_t *outputLen);
+uint32_t getPatchChecksum(uint8_t *patch, size_t sz);
 
 void registerPatch(char *name, unsigned int sz, char *data) {
 	map_put(patchMap, name, strlen(name), data, sz);
@@ -30,43 +129,74 @@ void registerPatch(char *name, unsigned int sz, char *data) {
 }
 
 void initScriptPatches() {
-	patchMap = map_alloc(1, NULL, NULL);
-	scriptMap = map_alloc(1, NULL, NULL);
+	sprintf(scriptCacheFile, "%s%s", executableDirectory, SCRIPT_CACHE_FILE_NAME);
+
+	patchMap = map_alloc(16, NULL, NULL);
+	scriptMap = map_alloc(16, NULL, NULL);
 
 	registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
+
+	printf("Loading script cache from %s...\n", scriptCacheFile);
+	loadScriptCache(scriptCacheFile);
+	printf("Done!\n");
 }
 
 uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b00;
 uint32_t (__cdecl *unk_0040a8f0)(uint32_t, char *) = (void *)0x0040a8f0;
 void (__cdecl *unk_0040a110)(uint8_t *, uint8_t *, void *, uint32_t, int) = (void *)0x0040a110;
 
-void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicateSymbols) {
-	// TODO: match with map
-	// if it's in the map, get the qb buffer
-	// first we have to get its length by iterating through the qb.  which could be a pain in the ass
-	// nvm.  it's literally the second dword
+// TODO: reverse the patching process: check the cached patch list first, then process if there is a patch to be applied.
+// an additional nice thing to have would be to cache patches to file (so that they could, say, fall off of a truck)
+// a last nice thing would be to load scripts from the local filesystem outside of a cache so that patches can be tested to added to an install
 
-	// TODO: slight change: because this isn't done when we're reading the script (and because of streaming), it's smarter to keep a table of our patched scripts as well as potential patches
+// how do we cache patches correctly?
+// check if the patch exists, *then* check the cache.  hopefully we can also access the checksum easily as well.
+
+void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicateSymbols) {
 	uint8_t *scriptOut;
 
 	//printf("LOADING SCRIPT %s\n", filename);
 
-	uint8_t *patch = map_get(patchMap, filename, strlen(filename));
+	size_t filenameLen = strlen(filename);
+	uint8_t *patch = map_get(patchMap, filename, filenameLen);
 	if (patch) {
 		uint32_t filesize = ((uint32_t *)script)[1];
-		uint8_t *patchedScript = map_get(scriptMap, filename, strlen(filename));
-		if (patchedScript) {
-			scriptOut = patchedScript;
+		scriptCacheEntry *cachedScript = map_get(scriptMap, filename, filenameLen);
+
+		size_t patchLen = map_getsz(patchMap, filename, filenameLen);
+		uint32_t patchcrc = getPatchChecksum(patch, patchLen);
+
+		if (cachedScript && cachedScript->checksum == patchcrc) {
+			printf("Using cached patched script for %s\n", filename);
+			scriptOut = cachedScript->script;
 		} else {
+			if (cachedScript) {
+				printf("Cached script checksum %08x didn't match patch %08x\n", cachedScript->checksum, patchcrc);
+			}
+
 			printf("Applying patch for %s\n", filename);
-			size_t patchLen = map_getsz(patchMap, filename, strlen(filename));
 			uint8_t *patchedBuffer = NULL;
 			size_t patchedBufferLen = 0;
 
 			int result = applyPatch(patch, patchLen, script, filesize, &patchedBuffer, &patchedBufferLen);
 				
 			if (!result) {
-				map_put(scriptMap, filename, strlen(filename), patchedBuffer, patchedBufferLen);
+				printf("Patch succeeded! Writing to cache...\n");
+
+				scriptCacheEntry entry;
+				entry.filenameLen = filenameLen;
+				entry.filename = malloc(filenameLen + 1);
+				memcpy(entry.filename, filename, filenameLen);
+				entry.filename[filenameLen] = '\0';
+				entry.checksum = getPatchChecksum(patch, patchLen);
+				entry.scriptLen = patchedBufferLen;
+				entry.script = patchedBuffer;
+
+				map_put(scriptMap, filename, filenameLen, &entry, sizeof(scriptCacheEntry));
+
+				saveScriptCache(scriptCacheFile);
+
+				printf("Done!\n");
 
 				scriptOut = patchedBuffer;
 			} else {
@@ -84,33 +214,6 @@ void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicate
 	unk_0040a110(scriptOut, scriptOut, ((void *)0x00417170), crc, idk & 0xffffff00 | (assertDuplicateSymbols != 0));
 
 	script[0] = 1;
-
-	/*__asm {
-		push esi
-		push edi
-		mov edi, dword ptr [esp + 0x0c]
-		push edi
-		call crc_32
-		mov esi, eax
-		push edi
-		push esi
-		call unk_0040a8f0
-		mov edx, dword ptr [esp + 0x20]
-		test edx, edx
-		setnz al
-		push eax
-		push esi
-		mov esi, dword ptr [esp + 0x24]
-		push 0x00417170
-		push esi
-		push esi
-		call unk_0040a8f0
-		add esp, 0x20
-		pop edi
-		mov byte ptr [esi], 0x01
-		pop esi
-		ret
-	}*/
 }
 
 void patchScriptHook() {
@@ -181,6 +284,18 @@ uint8_t readByte(uint8_t *buf, size_t *offset) {
 	uint8_t result = buf[*offset];
 	(*offset)++;
 	return result;
+}
+
+
+uint32_t getPatchChecksum(uint8_t *buf, size_t len) {
+	size_t offset = len - 4;
+	uint32_t patchcrc = 0;
+	patchcrc |= readByte(buf, &offset);
+	patchcrc |= readByte(buf, &offset) << 8;
+	patchcrc |= readByte(buf, &offset) << 16;
+	patchcrc |= readByte(buf, &offset) << 24;
+	
+	return patchcrc;
 }
 
 uint64_t decodeNumber(uint8_t *buf, size_t *offset) {
@@ -284,7 +399,7 @@ int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen,
 	outputcrc |= readByte(patch, &patchOffset) << 16;
 	outputcrc |= readByte(patch, &patchOffset) << 24;
 	if (outputcrc != crc32(*output, *outputLen)) {
-		printf("INPUT CRC DID NOT MATCH: %x %x\n", outputcrc, crc32(*output, *outputLen));
+		printf("OUTPUT CRC DID NOT MATCH: %x %x\n", outputcrc, crc32(*output, *outputLen));
 	}
 
 	uint32_t patchcrc = 0;
@@ -293,7 +408,7 @@ int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen,
 	patchcrc |= readByte(patch, &patchOffset) << 16;
 	patchcrc |= readByte(patch, &patchOffset) << 24;
 	if (patchcrc != crc32(patch, patchLen - 4)) {
-		printf("INPUT CRC DID NOT MATCH: %x %x\n", patchcrc, crc32(patch, patchLen));
+		printf("PATCH CRC DID NOT MATCH: %x %x\n", patchcrc, crc32(patch, patchLen));
 	}
 
 	return 0;
