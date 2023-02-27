@@ -12,6 +12,7 @@
 #include <hash.h>
 
 INCBIN(groundtricks, "patches/groundtricks.bps");
+INCBIN(levelselect_scripts, "patches/levelselect_scripts.bps");
 
 char scriptCacheFile[1024];
 
@@ -133,8 +134,10 @@ void initScriptPatches() {
 
 	patchMap = map_alloc(16, NULL, NULL);
 	scriptMap = map_alloc(16, NULL, NULL);
+	// TODO: add another map that stores scripts that are currently running
 
 	registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
+	registerPatch("pak\\levelselect\\levelselect_scripts.qb.wpc", glevelselect_scriptsSize, glevelselect_scriptsData);
 
 	printf("Loading script cache from %s...\n", scriptCacheFile);
 	loadScriptCache(scriptCacheFile);
@@ -391,6 +394,7 @@ int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen,
 	inputcrc |= readByte(patch, &patchOffset) << 24;
 	if (inputcrc != crc32(input, inputLen)) {
 		printf("INPUT CRC DID NOT MATCH: %x %x\n", inputcrc, crc32(input, inputLen));
+		goto failure;
 	}
 
 	uint32_t outputcrc = 0;
@@ -400,6 +404,7 @@ int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen,
 	outputcrc |= readByte(patch, &patchOffset) << 24;
 	if (outputcrc != crc32(*output, *outputLen)) {
 		printf("OUTPUT CRC DID NOT MATCH: %x %x\n", outputcrc, crc32(*output, *outputLen));
+		goto failure;
 	}
 
 	uint32_t patchcrc = 0;
@@ -409,7 +414,13 @@ int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen,
 	patchcrc |= readByte(patch, &patchOffset) << 24;
 	if (patchcrc != crc32(patch, patchLen - 4)) {
 		printf("PATCH CRC DID NOT MATCH: %x %x\n", patchcrc, crc32(patch, patchLen));
+		goto failure;
 	}
 
 	return 0;
+
+failure:
+	free(*output);
+	*output = NULL;
+	return 1;
 }

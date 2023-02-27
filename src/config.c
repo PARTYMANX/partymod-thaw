@@ -173,23 +173,7 @@ void loadSettings() {
 		isWindowed = getIniBool("Graphics", "Windowed", 0, configFile);
 	}
 	borderless = getIniBool("Graphics", "Borderless", 0, configFile);
-
-	//*customSettings = 1;    // not useful
-	//*frameCap = 1;  // not useful...maybe
-	//*bitDepth = 32;	// forcing this to 32 as it's 2022
-
-	float aspectRatio = ((float)resX) / ((float)resY);
-	//patchFloat(0x0058eb14, aspectRatio);
-	//patchFloat(0x0058d96c, aspectRatio);
-
-	// shadows - i'm not fully sure how this works, but in theory you can increase shadow resolution here
-	//patchFloat(0x00501289 + 4, 100.0f);
-	//patchFloat(0x00501291 + 4, 100.0f);
-	//patchFloat(0x005012a4 + 4, 128.0f);
-	//patchFloat(0x005012ac + 4, 128.0f);
 }
-
-//char *keyFmtStr = "menu=%d\0cameraToggle=%d\0cameraSwivelLock=%d\0grind=%d\0grab=%d\0ollie=%d\0kick=%d\0spinLeft=%d\0spinRight=%d\0nollie=%d\0switch=%d\0left=%d\0right=%d\0up=%d\0down=%d\0"
 
 #define KEYBIND_SECTION "Keybinds"
 #define CONTROLLER_SECTION "Gamepad"
@@ -199,7 +183,7 @@ void loadInputSettings(struct inputsettings *settingsOut) {
 	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
 
 	if (settingsOut) {
-		settingsOut->isPs2Controls = GetPrivateProfileInt(KEYBIND_SECTION, "UsePS2Controls", 1, configFile);
+		settingsOut->isPs2Controls = GetPrivateProfileInt("Miscellaneous", "UsePS2Controls", 1, configFile);
 	}
 }
 

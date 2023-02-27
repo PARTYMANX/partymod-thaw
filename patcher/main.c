@@ -11,8 +11,8 @@ uint32_t crc32(const void *buf, size_t size);
 int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen, uint8_t **output, size_t *outputLen);
 
 int main(int argc, char **argv) {
-	// open skate3.exe and dump contents
-	FILE *f = fopen("Skate3.exe", "rb");
+	// open thaw.exe and dump contents
+	FILE *f = fopen("THAW.exe", "rb");
 
 	if (f) {
 		// get file length
@@ -23,14 +23,14 @@ int main(int argc, char **argv) {
 		uint8_t *buffer = malloc(filesize);
 
 		if (buffer) {
-			printf("Patching Skate3.exe\n");
+			printf("Patching THAW.exe\n");
 			fread(buffer, 1, filesize, f);
 
 			// check input crc (not using the one in the bps due to multiple valid executables)
 			uint32_t inputcrc = crc32(buffer, filesize);
-			if (inputcrc != 0xdda4822f && inputcrc != 0x045925e8) {
+			if (inputcrc != 0xa8290acf) {
 				printf("INPUT CRC DOES NOT MATCH EXPECTED: %08x\n", inputcrc);
-				printf("Make sure THPS3 Patch 1.01 is installed\n");
+				printf("Make sure THAW Patch 1.01 is installed\n");
 				printf("Patch Failed!\n");
 			}
 
@@ -46,17 +46,17 @@ int main(int argc, char **argv) {
 
 			// check crc (again, not using the one in the bps due to multiple valid executables)
 			uint32_t outputcrc = crc32(patchedBuffer, patchedLen);
-			if (outputcrc != 0xbb5e5c48 && outputcrc != 0x69133ccb) {
-				printf("OUTPUT CRC DOES NOT MATCH EXPECTED: %08x\n", inputcrc);
-				printf("Make sure THPS3 Patch 1.01 is installed\n");
+			if (outputcrc != 0x6a8f87e3) {
+				printf("OUTPUT CRC DOES NOT MATCH EXPECTED: %08x\n", outputcrc);
+				printf("Make sure THAW Patch 1.01 is installed\n");
 				printf("Patch Failed!\n");
 
 				goto end;
 			}
 
-			// write to THPS3.exe
-			printf("Creating THPS3.exe\n");
-			FILE *fout = fopen("THPS3.exe", "wb");
+			// write to THAWPM.exe
+			printf("Creating THAWPM.exe\n");
+			FILE *fout = fopen("THAWPM.exe", "wb");
 			if (fout) {
 				fwrite(patchedBuffer, 1, patchedLen, fout);
 				fclose(fout);
@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
 			printf("Failed to allocate file buffer!\n");
 		}
 	} else {
-		printf("FAILED TO OPEN EXECUTABLE %s: %s\n", "Skate3.exe", strerror(errno));
+		printf("FAILED TO OPEN EXECUTABLE %s: %s\n", "THAW.exe", strerror(errno));
 	}
 
 end:
