@@ -16,8 +16,9 @@ INCBIN(levelselect_scripts, "patches/levelselect_scripts.bps");
 
 char scriptCacheFile[1024];
 
-map_t *scriptMap;
+map_t *cachedScriptMap;	// persistent cache, written to disk when modified
 map_t *patchMap;
+map_t *scriptMap;	// runtime cache, potentially modified scripts go in here.  think of it as a cache of buffers rather than scripts themselves
 
 #define SCRIPT_CACHE_FILE_NAME "scriptCache.qbc"
 #define CACHE_MAGIC_NUMBER 0x49676681 // QBC1
@@ -36,11 +37,11 @@ void saveScriptCache(char *filename) {
 	if (file) {
 		uint32_t magicNum = CACHE_MAGIC_NUMBER;
 		fwrite(&magicNum, sizeof(uint32_t), 1, file);
-		fwrite(&scriptMap->entries, sizeof(size_t), 1, file);
-		printf("Saving %d entries\n", scriptMap->entries);
+		fwrite(&cachedScriptMap->entries, sizeof(size_t), 1, file);
+		printf("Saving %d entries\n", cachedScriptMap->entries);
 
-		for (int i = 0; i < scriptMap->len; i++) {
-			struct bucketNode *node = scriptMap->buckets[i].head;
+		for (int i = 0; i < cachedScriptMap->len; i++) {
+			struct bucketNode *node = cachedScriptMap->buckets[i].head;
 			while (node) {
 				scriptCacheEntry *entry = node->val;
 
@@ -103,7 +104,7 @@ int loadScriptCache(char *filename) {
 				goto failure;	
 			}
 
-			map_put(scriptMap, entry.filename, entry.filenameLen, &entry, sizeof(entry));
+			map_put(cachedScriptMap, entry.filename, entry.filenameLen, &entry, sizeof(entry));
 
 			printf("Loaded cache entry for %s, patch checksum %08x\n", entry.filename, entry.checksum);
 		}
@@ -133,15 +134,18 @@ void initScriptPatches() {
 	sprintf(scriptCacheFile, "%s%s", executableDirectory, SCRIPT_CACHE_FILE_NAME);
 
 	patchMap = map_alloc(16, NULL, NULL);
+	cachedScriptMap = map_alloc(16, NULL, NULL);
 	scriptMap = map_alloc(16, NULL, NULL);
-	// TODO: add another map that stores scripts that are currently running
 
-	registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
 	registerPatch("pak\\levelselect\\levelselect_scripts.qb.wpc", glevelselect_scriptsSize, glevelselect_scriptsData);
 
 	printf("Loading script cache from %s...\n", scriptCacheFile);
 	loadScriptCache(scriptCacheFile);
 	printf("Done!\n");
+}
+
+void registerPS2ControlPatch() {
+	registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
 }
 
 uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b00;
@@ -164,14 +168,25 @@ void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicate
 	uint8_t *patch = map_get(patchMap, filename, filenameLen);
 	if (patch) {
 		uint32_t filesize = ((uint32_t *)script)[1];
-		scriptCacheEntry *cachedScript = map_get(scriptMap, filename, filenameLen);
+		scriptCacheEntry *cachedScript = map_get(cachedScriptMap, filename, filenameLen);
 
 		size_t patchLen = map_getsz(patchMap, filename, filenameLen);
 		uint32_t patchcrc = getPatchChecksum(patch, patchLen);
 
 		if (cachedScript && cachedScript->checksum == patchcrc) {
 			printf("Using cached patched script for %s\n", filename);
-			scriptOut = cachedScript->script;
+
+			uint8_t *s = map_get(scriptMap, filename, filenameLen);
+			if (s) {
+				memcpy(s, cachedScript->script, cachedScript->scriptLen);	// rewrite script to memory
+			} else {
+				s = malloc(cachedScript->scriptLen);
+				memcpy(s, cachedScript->script, cachedScript->scriptLen);
+
+				map_put(scriptMap, filename, filenameLen, s, cachedScript->scriptLen);
+			}
+
+			scriptOut = s;
 		} else {
 			if (cachedScript) {
 				printf("Cached script checksum %08x didn't match patch %08x\n", cachedScript->checksum, patchcrc);
@@ -193,13 +208,16 @@ void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicate
 				entry.filename[filenameLen] = '\0';
 				entry.checksum = getPatchChecksum(patch, patchLen);
 				entry.scriptLen = patchedBufferLen;
-				entry.script = patchedBuffer;
+				entry.script = malloc(patchedBufferLen);
+				memcpy(entry.script, patchedBuffer, patchedBufferLen);
 
-				map_put(scriptMap, filename, filenameLen, &entry, sizeof(scriptCacheEntry));
+				map_put(cachedScriptMap, filename, filenameLen, &entry, sizeof(scriptCacheEntry));
 
 				saveScriptCache(scriptCacheFile);
 
 				printf("Done!\n");
+
+				map_put(scriptMap, filename, filenameLen, patchedBuffer, patchedBufferLen);
 
 				scriptOut = patchedBuffer;
 			} else {

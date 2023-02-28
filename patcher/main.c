@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <conio.h>
+#include <string.h>
 
 #include <incbin/incbin.h>
 
@@ -61,6 +62,8 @@ int main(int argc, char **argv) {
 				fwrite(patchedBuffer, 1, patchedLen, fout);
 				fclose(fout);
 				printf("Patch Successful!\n");
+			} else {
+				printf("Failed to create THAWPM.exe: %s\n", strerror(errno));
 			}
 		} else {
 			printf("Failed to allocate file buffer!\n");

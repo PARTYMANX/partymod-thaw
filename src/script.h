@@ -3,5 +3,6 @@
 
 void patchScriptHook();
 void initScriptPatches();
+void registerPS2ControlPatch();
 
 #endif

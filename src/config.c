@@ -26,9 +26,18 @@ uint8_t resbuffer[100000];	// buffer needed for high resolutions
 
 uint8_t borderless;
 
+typedef struct {
+	uint32_t antialiasing;
+	uint32_t hq_shadows;
+	uint32_t distance_clipping;
+	uint32_t clipping_distance;	// int from 1-100
+	uint32_t fog;
+} graphicsSettings;
+
 int resX;
 int resY;
 float aspect_ratio;
+graphicsSettings graphics_settings;
 
 SDL_Window *window;
 
@@ -66,7 +75,7 @@ void createSDLWindow() {
 	loadSettings();
 
 	SDL_Init(SDL_INIT_VIDEO);
-	isWindowed = 1;
+	//isWindowed = 1;
 
 	SDL_WindowFlags flags = isWindowed ? SDL_WINDOW_SHOWN : SDL_WINDOW_FULLSCREEN;
 
@@ -116,6 +125,22 @@ void createSDLWindow() {
 	SDL_ShowCursor(0);
 }
 
+void writeConfigValues() {
+	*antialiasing = graphics_settings.antialiasing;
+	*hq_shadows = graphics_settings.hq_shadows;
+	*distance_clipping = graphics_settings.distance_clipping;
+
+	uint32_t distance = graphics_settings.clipping_distance;
+	if (distance > 100) {
+		distance = 100;
+	} else if (distance < 1) {
+		distance = 1;
+	}
+	*clipping_distance = distance * 5.0f + 95.0f;
+
+	*fog = graphics_settings.fog;
+}
+
 float __cdecl getScreenAngleFactor() {
 	return ((float)resX / (float)resY) / (4.0f / 3.0f);
 }
@@ -134,14 +159,13 @@ void patchWindow() {
 
 	patchNop(0x005352b3, 14);	// don't move window to corner
 
-	patchNop(0x006b4c17, 5);	// don't load config
+	patchCall(0x006b4c17, writeConfigValues);	// don't load config, use our own
 
 	patchCall(0x004ed8b0, setAspectRatio);
 	patchByte(0x004ed8b0, 0xe9);	// change CALL to JMP
 
 	patchCall(0x004ed8f0, getScreenAngleFactor);
 	patchByte(0x004ed8f0, 0xe9);	// change CALL to JMP
-
 }
 
 #define GRAPHICS_SECTION "Graphics"
@@ -161,11 +185,11 @@ void loadSettings() {
 	char configFile[1024];
 	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
 
-	*antialiasing = getIniBool("Graphics", "AntiAliasing", 1, configFile);
-	*hq_shadows = getIniBool("Graphics", "HQShadows", 1, configFile);
-	*distance_clipping = getIniBool("Graphics", "DistanceClipping", 0, configFile);
-	*clipping_distance = getIniBool("Graphics", "ClippingDistance", 1, configFile);
-	*fog = getIniBool("Graphics", "Fog", 0, configFile);
+	graphics_settings.antialiasing = getIniBool("Graphics", "AntiAliasing", 0, configFile);
+	graphics_settings.hq_shadows = getIniBool("Graphics", "HQShadows", 0, configFile);
+	graphics_settings.distance_clipping = getIniBool("Graphics", "DistanceClipping", 0, configFile);
+	graphics_settings.clipping_distance = GetPrivateProfileInt("Graphics", "ClippingDistance", 100, configFile);
+	graphics_settings.fog = getIniBool("Graphics", "Fog", 0, configFile);
    
 	resX = GetPrivateProfileInt("Graphics", "ResolutionX", 640, configFile);
 	resY = GetPrivateProfileInt("Graphics", "ResolutionY", 480, configFile);
@@ -183,7 +207,7 @@ void loadInputSettings(struct inputsettings *settingsOut) {
 	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
 
 	if (settingsOut) {
-		settingsOut->isPs2Controls = GetPrivateProfileInt("Miscellaneous", "UsePS2Controls", 1, configFile);
+		settingsOut->isPs2Controls = getIniBool("Miscellaneous", "UsePS2Controls", 1, configFile);
 	}
 }
 

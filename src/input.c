@@ -8,6 +8,7 @@
 #include <global.h>
 #include <patch.h>
 #include <config.h>
+#include <script.h>
 
 typedef struct {
 	uint32_t vtablePtr;
@@ -804,10 +805,12 @@ void __stdcall initManager() {
 	initSDLControllers();
 
 	if (inputsettings.isPs2Controls) {
+		registerPS2ControlPatch();
 		patchPs2Buttons();
 	}
 }
 
+// wrapper over the rolling friction calculation, provides easy access to the skater physics component
 void __fastcall rolling_friction_wrapper(void *comp) {
 	void (__fastcall *rolling_friction)(void *) = (void *)0x005c8ca0;
 
