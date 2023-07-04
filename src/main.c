@@ -13,7 +13,9 @@
 #include <script.h>
 
 #define VERSION_NUMBER_MAJOR 0
-#define VERSION_NUMBER_MINOR 9
+#define VERSION_NUMBER_MINOR 10
+
+void *initAddr = NULL;
 
 void initPatch() {
 	GetModuleFileName(NULL, &executableDirectory, filePathBufLen);
@@ -44,10 +46,52 @@ void initPatch() {
 	initScriptPatches();
 
 	printf("Patch Initialized\n");
+
+	printf("BASE ADDR: 0x%08x, LEN: %d\n", base_addr, mod_size);
+	printf("FOUND ADDR: 0x%08x\n", initAddr);
 }
 
 void patchHwType() {
 	patchByte(0x006283a5 + 6, 0x05);
+}
+
+void getModuleInfo() {
+	void *mod = GetModuleHandle(NULL);
+	//mod = 0x400000;
+
+	base_addr = mod;
+	void *end_addr = NULL;
+
+	PIMAGE_DOS_HEADER dos_header = mod;
+	PIMAGE_NT_HEADERS nt_headers = (uint8_t *)mod + dos_header->e_lfanew;
+
+	for (int i = 0; i < nt_headers->FileHeader.NumberOfSections; i++) {
+		PIMAGE_SECTION_HEADER section = (uint8_t *)nt_headers->OptionalHeader.DataDirectory + nt_headers->OptionalHeader.NumberOfRvaAndSizes * sizeof(IMAGE_DATA_DIRECTORY) + i * sizeof(IMAGE_SECTION_HEADER);
+
+		uint32_t section_size;
+		if (section->SizeOfRawData != 0) {
+			section_size = section->SizeOfRawData;
+		} else {
+			section_size = section->Misc.VirtualSize;
+		}
+
+		if (section->Characteristics & IMAGE_SCN_MEM_EXECUTE) {
+			end_addr = (uint8_t *)base_addr + section->VirtualAddress + section_size;
+		}
+
+		if ((i == nt_headers->FileHeader.NumberOfSections - 1) && end_addr == NULL) {
+			end_addr = (uint32_t)base_addr + section->PointerToRawData + section_size;
+		}
+	}
+
+	mod_size = (uint32_t)end_addr - (uint32_t)base_addr;
+}
+
+//uint8_t testpattern[17] = {0x83, 0xc4, 0x04, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x8b, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x51, 0x6a, 0x00};
+
+void findInitOffset() {
+	findPattern("83 c4 04 e8 ?? ?? ?? ?? 8b 0d ?? ?? ?? ?? 51 6a 00", base_addr, mod_size, &initAddr);
+	(uint8_t *)initAddr += 3;
 }
 
 __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpReserved) {
@@ -57,8 +101,12 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 			// Initialize once for each new process.
 			// Return FALSE to fail DLL load.
 
+			getModuleInfo();
+
+			findInitOffset();
+
 			// install patches
-			patchCall((void *)(0x00544060), &(initPatch));
+			patchCall((void *)(initAddr), &(initPatch));
 			patchWindow();
 			patchInput();
 			patchScriptHook();

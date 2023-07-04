@@ -7,6 +7,7 @@ enum instruction {
     NOP = 0x90,
     MOVIMM8 = 0xB0,
     JMP8 = 0xEB, // jump with 8 bit relative address
+    JMP = 0xE9,
     CALL = 0xE8 // NOTE: relative
 };
 
@@ -16,7 +17,9 @@ void patchByte(void *addr, uint8_t val);
 void patchDWord(void *addr, uint32_t val);
 void patchFloat(void *addr, float val);
 void patchCall(void *addr, void *func);
+void patchJmp(void *addr, void *func);
 void patchThisToCdecl(void *addr, void *func);
 void callFunc(void *addr);
+uint8_t findPattern(char *patternStr, void *startAddr, uint32_t len, uint32_t *addrOut);
 
 #endif
