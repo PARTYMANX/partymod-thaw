@@ -103,6 +103,7 @@ void loadControllerBinds(struct controllerbinds *bindsOut);
 void loadKeyBinds(struct keybinds *bindsOut);
 int getIniBool(char *section, char *key, int def, char *file);
 
+uint8_t get_config_offsets();
 void patchLoadConfig();
 void dumpSettings();
 void patchWindow();

@@ -17,6 +17,21 @@
 
 void *initAddr = NULL;
 
+void findOffsets() {
+	printf("finding offsets...\n");
+
+	uint8_t result = 0;
+	result |= get_config_offsets();
+
+	printf("done!\n");
+}
+
+void installPatches() {
+	patchWindow();
+	patchInput();
+	patchScriptHook();
+}
+
 void initPatch() {
 	GetModuleFileName(NULL, &executableDirectory, filePathBufLen);
 
@@ -42,6 +57,11 @@ void initPatch() {
 	printf("PARTYMOD for THAW %d.%d\n", VERSION_NUMBER_MAJOR, VERSION_NUMBER_MINOR);
 
 	printf("DIRECTORY: %s\n", executableDirectory);
+
+	init_patch_cache();
+
+	findOffsets();
+	installPatches();
 
 	initScriptPatches();
 
@@ -107,9 +127,6 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 
 			// install patches
 			patchCall((void *)(initAddr), &(initPatch));
-			patchWindow();
-			patchInput();
-			patchScriptHook();
 
 			break;
 

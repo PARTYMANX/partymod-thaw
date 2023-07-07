@@ -8,22 +8,35 @@
 #include <patch.h>
 #include <input.h>
 #include <global.h>
+#include <patchcache.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
-uint8_t isWindowed = 0;
+// there has got to be a better way to write this
 uint8_t *isFullscreen = 0x00858da7;
 uint32_t *resolution_setting = 0x008b455c;
-uint32_t *antialiasing = 0x008b4554;
-uint32_t *hq_shadows = 0x008b4555;
+uint8_t *antialiasing = 0x008b4554;
+uint8_t *hq_shadows = 0x008b4555;
 uint32_t *distance_clipping = 0x008b455a;
 uint32_t *clipping_distance = 0x008b4564;	// int from 1-100
-uint32_t *fog = 0x008b4556;
+uint8_t *fog = 0x008b4556;
 HWND *hwnd = 0x008b2194;
+int *isFocused = 0x008a35d5;
+int *other_isFocused = 0x0072e850;
+float *screenAspectRatio = 0x007d0a40;
+uint8_t *addr_resX = NULL;
+uint8_t *addr_resY = NULL;
+uint8_t *addr_createwindow = NULL;
+uint8_t *addr_resbuffer = NULL;
+uint8_t *addr_cornerwindow = NULL;
+uint8_t *addr_loadconfig = NULL;
+uint8_t *addr_setaspectratio = NULL;
+uint8_t *addr_getscreenangfactor = NULL;
 
 uint8_t resbuffer[100000];	// buffer needed for high resolutions
 
+uint8_t isWindowed = 0;
 uint8_t borderless;
 
 typedef struct {
@@ -40,6 +53,55 @@ float aspect_ratio;
 graphicsSettings graphics_settings;
 
 SDL_Window *window;
+
+uint8_t get_config_offsets() {
+	uint8_t *isFullscreenAnchor = NULL;
+	uint8_t *resolutionSettingAnchor = NULL;
+	uint8_t *settingsAnchor = NULL;
+	uint8_t *clipdistAnchor = NULL;
+	uint8_t *hwndAnchor = NULL;
+	uint8_t *isFocusedAnchor = NULL;
+	uint8_t *aspectRatioAnchor = NULL;
+	uint8_t *setAspectRatioAnchor = NULL;
+	uint8_t *getScreenAngleFactorAnchor = NULL;
+
+	uint8_t result = 0;
+	result |= patch_cache_pattern("89 44 24 68 a0 ?? ?? ?? ?? 53 33 db", &isFullscreenAnchor);
+	result |= patch_cache_pattern("8b 3d ?? ?? ?? ?? 33 c9 84 c0 0f 94 c1", &resolutionSettingAnchor);
+	result |= patch_cache_pattern("a8 01 74 07 c6 05 ?? ?? ?? ?? 01 a8 02", &settingsAnchor);
+	result |= patch_cache_pattern("a3 ?? ?? ?? ?? 8d 44 24 14 50 8b 44 24 20 8d 4c 24 1c", &clipdistAnchor);
+	result |= patch_cache_pattern("75 11 6a 01 8b 15 ?? ?? ?? ?? 52 ff 15", &hwndAnchor);
+	result |= patch_cache_pattern("0f 95 c0 84 c0 a2 ?? ?? ?? ?? 0f 85", &isFocusedAnchor);
+	result |= patch_cache_pattern("f3 0f 11 44 24 04 e8 ?? ?? ?? ?? d9 05", &aspectRatioAnchor);
+	result |= patch_cache_pattern("c7 44 24 2c 80 02 00 00", &addr_resX);
+	result |= patch_cache_pattern("c7 44 24 3c e0 01 00 00", &addr_resY);
+	result |= patch_cache_pattern("83 ec 40 8b 54 24 44 53 55 56 33 c0", &addr_createwindow);
+	result |= patch_cache_pattern("b9 ?? ?? ?? ?? 89 74 24 14 8b ff 8b c3", &addr_resbuffer);
+	result |= patch_cache_pattern("6a 04 51 52 53 53 53 50 ff 15", &addr_cornerwindow);
+	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 44 24 0c 83 c4 04 6a 00", &addr_loadconfig);
+	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 6a 00 68 05 92 52 99 e8 ?? ?? ?? ?? d9 5c 24 24", &setAspectRatioAnchor);
+	result |= patch_cache_pattern("e8 ?? ?? ?? ?? d9 44 24 04 8b ce d9 f2 dd d8", &getScreenAngleFactorAnchor);	// three possibilities here, all safe
+
+	if (result) {
+		isFullscreen = *(uint32_t *)(isFullscreenAnchor + 5);
+		resolution_setting = *(uint32_t *)(resolutionSettingAnchor + 2);
+		fog = *(uint32_t *)(settingsAnchor + 6);
+		hq_shadows = *(uint32_t *)(settingsAnchor + 6 + (11 * 1));
+		antialiasing = *(uint32_t *)(settingsAnchor + 6 + (11 * 5));
+		distance_clipping = *(uint32_t *)(settingsAnchor + 6 + (11 * 6) + 1);
+		clipping_distance = *(uint32_t *)(clipdistAnchor + 1);
+		hwnd = *(uint32_t *)(hwndAnchor + 6);
+		isFocused = *(uint32_t *)(isFocusedAnchor + 6);
+		aspectRatioAnchor += *(uint32_t *)(aspectRatioAnchor + 7) + 6 + 5;	// follow call
+		screenAspectRatio = *(uint32_t *)(aspectRatioAnchor + 2);
+		addr_setaspectratio = *(uint32_t *)(setAspectRatioAnchor + 1) + setAspectRatioAnchor + 5;	// should be 0x004ed8b0
+		addr_getscreenangfactor = *(uint32_t *)(getScreenAngleFactorAnchor + 1) + getScreenAngleFactorAnchor + 5;
+	} else {
+		printf("FAILED TO FIND CONFIG OFFSETS\n");
+	}
+
+	return result;
+}
 
 void dumpSettings() {
 	printf("RESOLUTION X: %d\n", resX);
@@ -114,13 +176,11 @@ void createSDLWindow() {
 	SDL_GetWindowWMInfo(window, &wmInfo);
 	*hwnd = wmInfo.info.win.window;
 
-	int *isFocused = 0x008a35d5;
-	int *other_isFocused = 0x0072e850;
 	*isFocused = 1;
 
 	// patch resolution setting
-	patchDWord(0x0053515a + 4, resX);
-	patchDWord(0x0053518a + 4, resY);
+	patchDWord(addr_resX + 4, resX);
+	patchDWord(addr_resY + 4, resY);
 	
 	SDL_ShowCursor(0);
 }
@@ -145,27 +205,27 @@ float __cdecl getScreenAngleFactor() {
 	return ((float)resX / (float)resY) / (4.0f / 3.0f);
 }
 
-float *screenAspectRatio = 0x007d0a40;
+
 void __cdecl setAspectRatio(float aspect) {
 	*screenAspectRatio = (float)resX / (float)resY;
 }
 
 void patchWindow() {
 	// replace the window with an SDL2 window.  this kind of straddles the line between input and config
-	patchCall(0x006b3290, createSDLWindow);
-	patchByte(0x006b3290 + 5, 0xc3);
+	patchCall(addr_createwindow, createSDLWindow);
+	patchByte(addr_createwindow + 5, 0xc3);
 	
-	patchDWord(0x0050d025 + 1, &resbuffer);
+	patchDWord(addr_resbuffer + 1, &resbuffer);
 
-	patchNop(0x005352b3, 14);	// don't move window to corner
+	patchNop(addr_cornerwindow, 14);	// don't move window to corner
 
-	patchCall(0x006b4c17, writeConfigValues);	// don't load config, use our own
+	patchCall(addr_loadconfig, writeConfigValues);	// don't load config, use our own
 
-	patchCall(0x004ed8b0, setAspectRatio);
-	patchByte(0x004ed8b0, 0xe9);	// change CALL to JMP
+	patchCall(addr_setaspectratio, setAspectRatio);
+	patchByte(addr_setaspectratio, 0xe9);	// change CALL to JMP
 
-	patchCall(0x004ed8f0, getScreenAngleFactor);
-	patchByte(0x004ed8f0, 0xe9);	// change CALL to JMP
+	patchCall(addr_getscreenangfactor, getScreenAngleFactor);
+	patchByte(addr_getscreenangfactor, 0xe9);	// change CALL to JMP
 }
 
 #define GRAPHICS_SECTION "Graphics"
@@ -273,8 +333,4 @@ void loadControllerBinds(struct controllerbinds *bindsOut) {
 		bindsOut->movement = GetPrivateProfileInt(CONTROLLER_SECTION, "MovementStick", CONTROLLER_STICK_LEFT, configFile);
 		bindsOut->camera = GetPrivateProfileInt(CONTROLLER_SECTION, "CameraStick", CONTROLLER_STICK_RIGHT, configFile);
 	}
-}
-
-void patchLoadConfig() {
-	patchCall((void *)0x0040b9f7, loadSettings);
 }
