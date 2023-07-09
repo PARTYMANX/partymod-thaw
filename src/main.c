@@ -24,6 +24,7 @@ void findOffsets() {
 	uint8_t result = 0;
 	result |= get_config_offsets();
 	result |= get_script_offsets();
+	result |= get_input_offsets();
 
 	printf("done!\n");
 }

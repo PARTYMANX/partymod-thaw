@@ -12,6 +12,15 @@
 
 #include <hash.h>
 
+// NOTE: script checksum is stored at pscript + 0xd0.  in cfuncs, access param 2 + 0xd0
+// TODO: modify getplatform to return 5 when called from BertStanceState or switchRegular (groundtricks?)
+// TODO: find where talk button is set and do the same there (setup_main_button_event_mappings?)
+// GetPlatform: 8b 0d ?? ?? ?? ?? 33 c0 49 83 f9 07 0f 87 8e 00 00 00	// make sure to look back at this one to see how it works
+// isps2: a1 ?? ?? ?? ?? 83 f8 01 74 0d 83 f8 02 74 08
+// isxenon: 83 3d ?? ?? ?? ?? 06 0f 94 c0 c3
+// iswin32: 83 3d ?? ?? ?? ?? 08 0f 94 c0 c3
+// ispc: 83 3d ?? ?? ?? ?? 07 0f 94 c0 c3
+
 INCBIN(groundtricks, "patches/groundtricks.bps");
 INCBIN(levelselect_scripts, "patches/levelselect_scripts.bps");
 
