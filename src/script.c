@@ -8,6 +8,7 @@
 
 #include <global.h>
 #include <patch.h>
+#include <patchcache.h>
 
 #include <hash.h>
 
@@ -149,8 +150,32 @@ void registerPS2ControlPatch() {
 }
 
 uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b00;
-uint32_t (__cdecl *unk_0040a8f0)(uint32_t, char *) = (void *)0x0040a8f0;
-void (__cdecl *unk_0040a110)(uint8_t *, uint8_t *, void *, uint32_t, int) = (void *)0x0040a110;
+uint32_t (__cdecl *addr_parseqbsecondfunc)(uint32_t, char *) = (void *)0x0040a8f0;
+void (__cdecl *addr_parseqbthirdfunc)(uint8_t *, uint8_t *, void *, uint32_t, int) = (void *)0x0040a110;
+void *addr_parseqb = NULL;
+void *addr_unkparseqbfp = NULL;	// function pointer passed into third func
+
+uint8_t get_script_offsets() {
+	uint8_t *parseqbAnchor = NULL;
+	uint8_t *crc32Anchor = NULL;
+	uint8_t *secondfuncAnchor = NULL;
+
+	uint8_t result = 0;
+	result |= patch_cache_pattern("8b 44 24 08 8b 15 ?? ?? ?? ?? 55 56 8b 74 24 0c 8b 4e 04", &addr_unkparseqbfp);
+	result |= patch_cache_pattern("8b 44 24 04 55 8b 68 04 56 8d 70 1c 03 e8", &addr_parseqbthirdfunc);
+	result |= patch_cache_pattern("6a 01 57 50 e8 ?? ?? ?? ?? 8b 46 10 50", &parseqbAnchor);
+	result |= patch_cache_pattern("c1 e1 08 0b ca c1 e1 08 0b c8 51 e8 ?? ?? ?? ?? 83 c4 08", &secondfuncAnchor);
+
+	if (result) {
+		addr_parseqb = *(uint32_t *)(parseqbAnchor + 5) + parseqbAnchor + 9;
+		their_crc32 = *(uint32_t *)(parseqbAnchor + 14) + parseqbAnchor + 18;
+		addr_parseqbsecondfunc = *(uint32_t *)(secondfuncAnchor + 12) + secondfuncAnchor + 16;
+	} else {
+		printf("FAILED TO FIND SCRIPT OFFSETS\n");
+	}
+
+	return result;
+}
 
 // TODO: reverse the patching process: check the cached patch list first, then process if there is a patch to be applied.
 // an additional nice thing to have would be to cache patches to file (so that they could, say, fall off of a truck)
@@ -231,15 +256,16 @@ void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicate
 
 	// original function
 	uint32_t crc = their_crc32(filename);
-	uint32_t idk = unk_0040a8f0(crc, filename);
-	unk_0040a110(scriptOut, scriptOut, ((void *)0x00417170), crc, idk & 0xffffff00 | (assertDuplicateSymbols != 0));
+	uint32_t idk = addr_parseqbsecondfunc(crc, filename);
+	addr_parseqbthirdfunc(scriptOut, scriptOut, addr_unkparseqbfp, crc, idk & 0xffffff00 | (assertDuplicateSymbols != 0));
 
 	script[0] = 1;
 }
 
 void patchScriptHook() {
-	patchCall(0x0040de30, ParseQbWrapper);
-	patchByte(0x0040de30, 0xe9);	// change CALL to JMP
+	printf("patching 0x%08x...\n", addr_parseqb);
+	patchCall(addr_parseqb, ParseQbWrapper);
+	patchByte(addr_parseqb, 0xe9);	// change CALL to JMP
 }
 
 const uint32_t crc32lut[] = {

@@ -7,6 +7,7 @@
 #include <SDL2/SDL_syswm.h>
 
 #include <patch.h>
+#include <patchcache.h>
 #include <global.h>
 #include <input.h>
 #include <config.h>
@@ -22,6 +23,7 @@ void findOffsets() {
 
 	uint8_t result = 0;
 	result |= get_config_offsets();
+	result |= get_script_offsets();
 
 	printf("done!\n");
 }
@@ -29,7 +31,9 @@ void findOffsets() {
 void installPatches() {
 	patchWindow();
 	patchInput();
+	printf("installing script patches\n");
 	patchScriptHook();
+	printf("done\n");
 }
 
 void initPatch() {

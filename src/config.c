@@ -25,6 +25,7 @@ HWND *hwnd = 0x008b2194;
 int *isFocused = 0x008a35d5;
 int *other_isFocused = 0x0072e850;
 float *screenAspectRatio = 0x007d0a40;
+float *orig_screenanglefactor = NULL;
 uint8_t *addr_resX = NULL;
 uint8_t *addr_resY = NULL;
 uint8_t *addr_createwindow = NULL;
@@ -33,6 +34,10 @@ uint8_t *addr_cornerwindow = NULL;
 uint8_t *addr_loadconfig = NULL;
 uint8_t *addr_setaspectratio = NULL;
 uint8_t *addr_getscreenangfactor = NULL;
+uint8_t *addr_setletterbox = NULL;
+uint8_t *isLetterboxed = NULL;
+float *viewportYMult = NULL;
+float *viewportYOffset = NULL;
 
 uint8_t resbuffer[100000];	// buffer needed for high resolutions
 
@@ -64,6 +69,7 @@ uint8_t get_config_offsets() {
 	uint8_t *aspectRatioAnchor = NULL;
 	uint8_t *setAspectRatioAnchor = NULL;
 	uint8_t *getScreenAngleFactorAnchor = NULL;
+	uint8_t *letterboxSizeAnchor = NULL;
 
 	uint8_t result = 0;
 	result |= patch_cache_pattern("89 44 24 68 a0 ?? ?? ?? ?? 53 33 db", &isFullscreenAnchor);
@@ -81,6 +87,8 @@ uint8_t get_config_offsets() {
 	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 44 24 0c 83 c4 04 6a 00", &addr_loadconfig);
 	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 6a 00 68 05 92 52 99 e8 ?? ?? ?? ?? d9 5c 24 24", &setAspectRatioAnchor);
 	result |= patch_cache_pattern("e8 ?? ?? ?? ?? d9 44 24 04 8b ce d9 f2 dd d8", &getScreenAngleFactorAnchor);	// three possibilities here, all safe
+	result |= patch_cache_pattern("8a 44 24 04 84 c0 a0 ?? ?? ?? ?? 74 23 84 c0", &addr_setletterbox);
+	result |= patch_cache_pattern("d1 f8 03 d0 89 15 ?? ?? ?? ?? f3 0f 11 05 ?? ?? ?? ?? c3", &letterboxSizeAnchor);
 
 	if (result) {
 		isFullscreen = *(uint32_t *)(isFullscreenAnchor + 5);
@@ -96,6 +104,10 @@ uint8_t get_config_offsets() {
 		screenAspectRatio = *(uint32_t *)(aspectRatioAnchor + 2);
 		addr_setaspectratio = *(uint32_t *)(setAspectRatioAnchor + 1) + setAspectRatioAnchor + 5;	// should be 0x004ed8b0
 		addr_getscreenangfactor = *(uint32_t *)(getScreenAngleFactorAnchor + 1) + getScreenAngleFactorAnchor + 5;
+		orig_screenanglefactor = *(uint32_t *)(addr_getscreenangfactor + 2);
+		isLetterboxed = *(uint32_t *)(addr_setletterbox + 7);
+		viewportYOffset = *(uint32_t *)(letterboxSizeAnchor + 6);
+		viewportYMult = *(uint32_t *)(letterboxSizeAnchor + 14);
 	} else {
 		printf("FAILED TO FIND CONFIG OFFSETS\n");
 	}
@@ -202,9 +214,30 @@ void writeConfigValues() {
 }
 
 float __cdecl getScreenAngleFactor() {
-	return ((float)resX / (float)resY) / (4.0f / 3.0f);
+
+
+	if (*orig_screenanglefactor == 0.0f) {
+		printf("waht\n");
+	}
+
+	float aspect = ((float)resX / (float)resY);
+
+	float result = ((aspect / (4.0f / 3.0f)));
+
+	//printf("angle: 0x%08x, 0x%08x, %f %f, %d, x%f, off %d\n", addr_getscreenangfactor + 2, orig_screenanglefactor, *orig_screenanglefactor, result, *isLetterboxed, *viewportYMult, *viewportYOffset);
+	//*isLetterboxed = 1;
+	//*viewportYMult = 1.0f;
+	//*viewportYOffset = 2;
+
+	if (*orig_screenanglefactor != 1.0f)
+		return *orig_screenanglefactor;
+	else 
+		return result;
 }
 
+void __cdecl setLetterBox(uint8_t isLetterbox) {
+	
+}
 
 void __cdecl setAspectRatio(float aspect) {
 	*screenAspectRatio = (float)resX / (float)resY;

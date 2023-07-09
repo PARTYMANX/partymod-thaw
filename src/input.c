@@ -1045,7 +1045,7 @@ void patchPs2Buttons() {
 	//patchCall((void *)(0x005d471c), rolling_friction_wrapper);
 	//patchByte((void *)(0x005d471c), 0xe9);
 
-	patchByte((void *)(0x0046ee86 + 2), 0x05);	// change PC platform to gamecube.  this just makes it default to ps2 controls
+	patchByte((void *)(0x0046ee86 + 2), 0x05);	// change PC platform to ps2.  this just makes it default to ps2 controls
 	//patchByte((void *)(0x0046ef29 + 2), 0x05);	// do ps2 things if xbox
 
 	// in air
