@@ -53,6 +53,172 @@ typedef struct {
 
 void patchPs2Buttons();
 
+uint8_t *addr_platform = (void *)(0x0046ee86);	// 83 f8 07 56 c7 44 24 04 00 00 00 00
+uint8_t *addr_r2l2_air = (void *)(0x005dff41);	// 8a 93 80 00 00 00 84 d2 74 0a
+uint8_t *addr_r2l2_break_vert1 = (void *)(0x005da2dc);	// 8a 87 80 00 00 00 84 c0 74 0a
+uint8_t *addr_r2l2_break_vert2 = (void *)(0x005da306);	// 8a 87 80 00 00 00 84 c0 74 0e
+uint8_t *addr_r2l2_lip = (void *)(0x005c9ca1);	// 8a 87 80 00 00 00 84 c0 0f 84 92 00 00 00
+uint8_t *addr_r2l2_air_recover = (void *)(0x005df970);	// 8a 83 80 00 00 00 84 c0 74 11
+uint8_t *addr_r2l2_groundair = (void *)(0x005dea28);	// 8a 85 80 00 00 00 84 c0 74 0a
+uint8_t *addr_r2l2_groundair_acid1 = (void *)(0x005defeb);	// 8a 85 80 00 00 00 84 c0 74 3a
+uint8_t *addr_r2l2_groundair_acid2 = (void *)(0x005df389);	// 8a 85 80 00 00 00 84 c0 0f 84 18 04 00 00
+uint8_t *addr_r2l2_acid_drop = (void *)(0x005e0d05);	// 8a 88 80 00 00 00 84 c9 74 0a
+uint8_t *addr_r2l2_walk_acid = (void *)(0x005fcceb);	// 8a 88 a0 00 00 00 83 c0 20 84 c9 0f 84 cb 00 00 00
+uint8_t *addr_r2l2_bike_lip_neg = (void *)(0x005ce99a);	// 8a 88 e0 00 00 00 84 c9 53 55 74 14
+uint8_t *addr_r2l2_bike_lip_pos = (void *)(0x005dc301);	// 8a 85 e0 00 00 00 84 c0 0f 84 37 01 00 00
+uint8_t *addr_r2l2_bike_lip_select = (void *)(0x005dc9be);	// 8a 85 80 02 00 00 84 c0 8d 8c 24 c4 01 00 00
+uint8_t *addr_r2l2_stall1 = (void *)(0x005e0f8e);	// 8a 9f e0 00 00 00 84 db 0f 95 c2 83 c0 68
+uint8_t *addr_r2l2_stall2 = (void *)(0x005e2939);	// 8a 87 e0 00 00 00 84 c0 0f 84 5b 01 00 00
+uint8_t *addr_bike_flip = (void *)(0x005d7d99);	// 8a 87 80 00 00 00 83 c4 18 84 c0 74 1b
+uint8_t *addr_bike_spin = (void *)(0x005d7e9f);	// 8a 87 80 00 00 00 84 c0 74 1b
+uint8_t *addr_spin_delay1 = (void *)(0x005cd230);	// 76 76 8b 4e 0c 68 43 db 57 49
+uint8_t *addr_spin_delay2 = (void *)(0x005cd2fb);	// 76 74 8b 4e 0c 68 43 db 57 49
+
+void *in_air_to_break_success = NULL;
+void *in_air_to_break_failure = NULL;
+
+void *break_vert_success = NULL;
+void *break_vert_failure = NULL;
+
+void *other_break_vert_success = NULL;
+void *other_break_vert_failure = NULL;
+
+void *lip_jump_success = NULL;	// 0x005c9cbd
+void *lip_jump_failure = NULL;	// 0x005c9d41
+
+void *air_recovery_success = NULL;	// 0x005df984
+void *air_recovery_failure = NULL;	// 0x005df98b
+
+void *ground_to_air_success = NULL;	// 0x005dea3c
+void *ground_to_air_failure = NULL;	// 0x005dea45
+
+void *ground_to_air_acid_drop_success = NULL;	// 0x005df02f
+void *ground_to_air_acid_drop_failure = NULL;	// 0x005defff
+
+void *also_ground_to_air_acid_drop_success = NULL;	// 0x005df3a5
+void *also_ground_to_air_acid_drop_failure = NULL;	// 0x005df7af
+
+void *in_air_acid_drop_success = NULL;	// 0x005e0d19
+void *in_air_acid_drop_failure = NULL;	// 0x005e0d23
+
+void *walk_acid_drop_success = NULL;	// 0x005fcd0a
+void *walk_acid_drop_failure = NULL;	// 0x005fcdc7
+
+void *not_bike_lip_check_success = NULL;	// 0x005ce9c8
+void *not_bike_lip_check_failure = NULL;	// 0x005ceb7d
+
+void *bike_lip_check_success = NULL;	// 0x005dc327
+void *bike_lip_check_failure = NULL;	// 0x005dc446
+
+uint8_t find_ps2_control_offsets() {
+	uint8_t result = 0;
+	result |= patch_cache_pattern("83 f8 07 56 c7 44 24 04 00 00 00 00", &addr_platform);
+	result |= patch_cache_pattern("8a 93 80 00 00 00 84 d2 74 0a", &addr_r2l2_air);
+	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 0a", &addr_r2l2_break_vert1);
+	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 0e", &addr_r2l2_break_vert2);
+	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 0f 84 92 00 00 00", &addr_r2l2_lip);
+	result |= patch_cache_pattern("8a 83 80 00 00 00 84 c0 74 11", &addr_r2l2_air_recover);
+	result |= patch_cache_pattern("8a 85 80 00 00 00 84 c0 74 0a", &addr_r2l2_groundair);
+	result |= patch_cache_pattern("8a 85 80 00 00 00 84 c0 74 3a", &addr_r2l2_groundair_acid1);
+	result |= patch_cache_pattern("8a 85 80 00 00 00 84 c0 0f 84 18 04 00 00", &addr_r2l2_groundair_acid2);
+	result |= patch_cache_pattern("8a 88 80 00 00 00 84 c9 74 0a", &addr_r2l2_acid_drop);
+	result |= patch_cache_pattern("8a 88 a0 00 00 00 83 c0 20 84 c9 0f 84 cb 00 00 00", &addr_r2l2_walk_acid);
+	result |= patch_cache_pattern("8a 88 e0 00 00 00 84 c9 53 55 74 14", &addr_r2l2_bike_lip_neg);
+	result |= patch_cache_pattern("8a 85 e0 00 00 00 84 c0 0f 84 37 01 00 00", &addr_r2l2_bike_lip_pos);
+	result |= patch_cache_pattern("8a 85 80 02 00 00 84 c0 8d 8c 24 c4 01 00 00", &addr_r2l2_bike_lip_select);
+	result |= patch_cache_pattern("8a 9f e0 00 00 00 84 db 0f 95 c2 83 c0 68", &addr_r2l2_stall1);
+	result |= patch_cache_pattern("8a 87 e0 00 00 00 84 c0 0f 84 5b 01 00 00", &addr_r2l2_stall2);
+	result |= patch_cache_pattern("8a 87 80 00 00 00 83 c4 18 84 c0 74 1b", &addr_bike_flip);
+	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 1b", &addr_bike_spin);
+	result |= patch_cache_pattern("76 76 8b 4e 0c 68 43 db 57 49", &addr_spin_delay1);
+	result |= patch_cache_pattern("76 74 8b 4e 0c 68 43 db 57 49", &addr_spin_delay2);
+
+	if (result) {
+		in_air_to_break_success = addr_r2l2_air + 0x1e;
+		in_air_to_break_failure = addr_r2l2_air + 0x14;
+
+		break_vert_success = addr_r2l2_break_vert1 + 0x14;
+		break_vert_failure = addr_r2l2_break_vert1 + 0x2a;
+
+		other_break_vert_success = addr_r2l2_break_vert2 + 0x18;
+		other_break_vert_failure = addr_r2l2_break_vert2 + 0x25b;
+		
+		lip_jump_success = addr_r2l2_lip + 0x1c;
+		lip_jump_failure = addr_r2l2_lip + 0xa0;
+		
+		air_recovery_success = addr_r2l2_air_recover + 0x14;
+		air_recovery_failure = addr_r2l2_air_recover + 0x1b;
+		
+		ground_to_air_success = addr_r2l2_groundair + 0x14;
+		ground_to_air_failure = addr_r2l2_groundair + 0x1d;
+		
+		ground_to_air_acid_drop_success = addr_r2l2_groundair_acid1 + 0x44;
+		ground_to_air_acid_drop_failure = addr_r2l2_groundair_acid1 + 0x14;
+		
+		also_ground_to_air_acid_drop_success = addr_r2l2_groundair_acid2 + 0x1c;
+		also_ground_to_air_acid_drop_failure = addr_r2l2_groundair_acid2 + 0x426;
+		
+		in_air_acid_drop_success = addr_r2l2_acid_drop + 0x14;
+		in_air_acid_drop_failure = addr_r2l2_acid_drop + 0x1e;
+		
+		walk_acid_drop_success = addr_r2l2_walk_acid + 0x1f;
+		walk_acid_drop_failure = addr_r2l2_walk_acid + 0xdc;
+		
+		not_bike_lip_check_success = addr_r2l2_bike_lip_neg + 0x2e;
+		not_bike_lip_check_failure = addr_r2l2_bike_lip_neg + 0x1e3;
+		
+		bike_lip_check_success = addr_r2l2_bike_lip_pos + 0x26;
+		bike_lip_check_failure = addr_r2l2_bike_lip_pos + 0x145;
+	} else {
+		printf("FAILED TO FIND PS2 CONTROL OFFSETS\n");
+	}
+
+	return result;
+}
+
+uint8_t *shouldQuit = 0x008b2198;	// 0084aa80
+uint8_t *isFocused_again = NULL;
+uint8_t *addr_isKeyboardOnScreen = 0x0074fb42;	// use key_input (+ 1)
+void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;	// a0 ?? ?? ?? ?? 84 c0 75 1a a0 ?? ?? ?? ?? 84 c0 0f 84 a9 00 00 00
+uint8_t *unk2 = 0x00751dc0;	// use key_input (+10)
+uint8_t *unk3 = 0x0074fb43;	// use key_input (+23)
+uint8_t *addr_device_processs = NULL; // 8b 81 d8 00 00 00 48 c6 81 e4 00 00 00 00
+uint8_t *addr_call_device_read = NULL; // e8 ?? ?? ?? ?? 8b 8e d8 00 00 00 b8 02 00 00 00
+uint8_t *addr_set_actuators = NULL; // 83 ec 44 55 56 8b 74 24 50
+uint8_t *addr_init_dinput = NULL; // 6a 00 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 00 08 00 00 50 e8
+uint8_t *addr_deinit_dinput = NULL; // e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 6a 01 6a 00 6a 00
+uint8_t *addr_fmvpoll = NULL;
+uint8_t *addr_unfocuspoll = NULL;
+
+uint8_t get_input_offsets() {
+	uint8_t *quitfocusAnchor = NULL;
+
+	uint8_t result = 0;
+	result |= patch_cache_pattern("a0 ?? ?? ?? ?? 84 c0 75 1a a0 ?? ?? ?? ?? 84 c0 0f 84 a9 00 00 00", &key_input);
+	result |= patch_cache_pattern("8b 81 d8 00 00 00 48 c6 81 e4 00 00 00 00", &addr_device_processs);
+	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 8e d8 00 00 00 b8 02 00 00 00", &addr_call_device_read);
+	result |= patch_cache_pattern("83 ec 44 55 56 8b 74 24 50", &addr_set_actuators);
+	result |= patch_cache_pattern("6a 00 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 00 08 00 00 50 e8", &addr_init_dinput);
+	result |= patch_cache_pattern("e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 6a 01 6a 00 6a 00", &addr_deinit_dinput);
+	result |= patch_cache_pattern("38 1d ?? ?? ?? ?? 74 c8 eb 07 c6 05 ?? ?? ?? ?? 01", &quitfocusAnchor);
+	result |= patch_cache_pattern("53 53 51 8d 54 24 48 52 ff 15", &addr_fmvpoll);
+	result |= patch_cache_pattern("6a 00 6a 00 50 8d 4c 24 4c 51 ff 15", &addr_unfocuspoll);
+
+	if (result) {
+		addr_isKeyboardOnScreen = *(uint32_t *)((uint8_t *)key_input + 1);
+		unk2 = *(uint32_t *)((uint8_t *)key_input + 10);
+		unk3 = *(uint32_t *)((uint8_t *)key_input + 23);
+		isFocused_again = *(uint32_t *)(quitfocusAnchor + 2);
+		shouldQuit = *(uint32_t *)(quitfocusAnchor + 12);
+	} else {
+		printf("FAILED TO FIND SCRIPT OFFSETS\n");
+	}
+
+	result |= find_ps2_control_offsets();
+
+	return result;
+}
+
 int controllerCount;
 int controllerListSize;
 SDL_GameController **controllerList;
@@ -211,15 +377,25 @@ uint8_t getButton(SDL_GameController *controller, controllerButton button) {
 }
 
 void getStick(SDL_GameController *controller, controllerStick stick, uint8_t *xOut, uint8_t *yOut) {
+	uint8_t result_x, result_y;
+
 	if (stick == CONTROLLER_STICK_LEFT) {
-		*xOut = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
-		*yOut = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> 8) + 128);
+		result_x = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
+		result_y = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> 8) + 128);
 	} else if (stick == CONTROLLER_STICK_RIGHT) {
-		*xOut = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
-		*yOut = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> 8) + 128);
+		result_x = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
+		result_y = (uint8_t)((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> 8) + 128);
 	} else {
-		*xOut = 0x80;
-		*yOut = 0x80;
+		result_x = 0x80;
+		result_y = 0x80;
+	}
+
+	if (axisAbs(result_x) > axisAbs(*xOut)) {
+		*xOut = result_x;
+	}
+
+	if (axisAbs(result_y) > axisAbs(*yOut)) {
+		*yOut = result_y;
 	}
 }
 
@@ -392,19 +568,19 @@ void pollKeyboard(device *dev) {
 	}
 		
 	// d-pad
-	if (keyboardState[keybinds.up]) {
+	if (keyboardState[keybinds.itemUp]) {
 		dev->controlData[2] |= 0x01 << 4;
 		dev->controlData[10] = 0xFF;
 	}
-	if (keyboardState[keybinds.right]) {
+	if (keyboardState[keybinds.itemRight]) {
 		dev->controlData[2] |= 0x01 << 5;
 		dev->controlData[8] = 0xFF;
 	}
-	if (keyboardState[keybinds.down]) {
+	if (keyboardState[keybinds.itemDown]) {
 		dev->controlData[2] |= 0x01 << 6;
 		dev->controlData[11] = 0xFF;
 	}
-	if (keyboardState[keybinds.left]) {
+	if (keyboardState[keybinds.itemLeft]) {
 		dev->controlData[2] |= 0x01 << 7;
 		dev->controlData[9] = 0xFF;
 	}
@@ -430,33 +606,28 @@ void pollKeyboard(device *dev) {
 	// left
 	// x
 	if (keyboardState[keybinds.left] && !keyboardState[keybinds.right]) {
-		dev->controlData[6] = 0;
+		dev->controlData[6] = (keyboardState[keybinds.feeble]) ? 64 : 0;
 	}
 	if (keyboardState[keybinds.right] && !keyboardState[keybinds.left]) {
-		dev->controlData[6] = 255;
+		dev->controlData[6] = (keyboardState[keybinds.feeble]) ? 192 : 255;
 	}
 
 	// y
 	if (keyboardState[keybinds.up] && !keyboardState[keybinds.down]) {
-		dev->controlData[7] = 0;
+		dev->controlData[7] = (keyboardState[keybinds.feeble]) ? 64 : 0;
 	}
 	if (keyboardState[keybinds.down] && !keyboardState[keybinds.up]) {
-		dev->controlData[7] = 255;
+		dev->controlData[7] = (keyboardState[keybinds.feeble]) ? 192 : 255;
 	}
 }
 
 // returns 1 if a text entry prompt is on-screen so that keybinds don't interfere with text entry confirmation/cancellation
 uint8_t isKeyboardTyping() {
-	uint8_t *keyboard_on_screen = 0x0074fb42;
-
-	return *keyboard_on_screen;
+	return *addr_isKeyboardOnScreen;
 }
 
 void do_key_input(SDL_KeyCode key) {
-	void (*key_input)(int32_t key, uint32_t param) = (void *)0x0062b1f0;
-	uint8_t *keyboard_on_screen = 0x0074fb42;
-
-	if (!*keyboard_on_screen) {
+	if (!*addr_isKeyboardOnScreen) {
 		return;
 	}
 
@@ -656,13 +827,32 @@ void processEvent(SDL_Event *e) {
 		case SDL_CONTROLLERAXISMOTION:
 			setUsingKeyboard(0);
 			return;
+		case SDL_WINDOWEVENT:
+			if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+				//*isFocused_again = 0;
+			} else if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+				/*int *recreateDevice = (int *)0x00aab48e;
+				*recreateDevice = 1;*/
+
+				//*isFocused_again = 1;
+			}
+			return;
 		case SDL_QUIT: {
-			int *shouldQuit = 0x008b2198;	// 0084aa80
+			
 			*shouldQuit = 1;
 			return;
 		}
 		default:
 			return;
+	}
+}
+
+void processEventsUnfocused() {
+	// called when window is unfocused so that window events are still processed
+
+	SDL_Event e;
+	while(SDL_PollEvent(&e)) {
+		processEvent(&e);
 	}
 }
 
@@ -758,8 +948,6 @@ void __cdecl processController(device *dev) {
 	}
 
 	// keyboard text entry doesn't work unless these values are set correctly
-	uint8_t *unk2 = 0x00751dc0;
-	uint8_t *unk3 = 0x0074fb43;
 
 	*unk2 = 1;
 	*unk3 = 0;
@@ -771,7 +959,7 @@ void __cdecl set_actuators(int port, uint16_t left, uint16_t right) {
 	//printf("SETTING ACTUATORS: %d %d %d\n", port, left, right);
 	for (int i = 0; i < controllerCount; i++) {
 		if (SDL_GameControllerGetAttached(controllerList[i]) && SDL_GameControllerGetPlayerIndex(controllerList[i]) == port) {
-			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), left, right, 1000);
+			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), left, right, 0);
 		}
 	}
 }
@@ -906,39 +1094,39 @@ __asm failure:	\
 }
 
 void __stdcall in_air_to_break(void *comp) {
-	spine_buttons_asm(0x005dff5f, 0x005dff55);
+	spine_buttons_asm(in_air_to_break_success, in_air_to_break_failure);
 }
 
 void break_vert(void *comp) {
-	not_spine_buttons_asm(0x005da2f0, 0x005da306);
+	not_spine_buttons_asm(break_vert_success, break_vert_failure);
 }
 
 void other_break_vert(void *comp) {
-	not_spine_buttons_asm(0x005da31e, 0x005da561);
+	not_spine_buttons_asm(other_break_vert_success, other_break_vert_failure);
 }
 
 void lip_jump(void *comp) {
-	spine_buttons_asm(0x005c9cbd, 0x005c9d41)
+	spine_buttons_asm(lip_jump_success, lip_jump_failure);
 }
 
 void air_recovery(void *comp) {
-	spine_buttons_asm(0x005df984, 0x005df98b);
+	spine_buttons_asm(air_recovery_success, air_recovery_failure);
 }
 
 void ground_to_air(void *comp) {
-	not_spine_buttons_asm(0x005dea3c, 0x005dea45);
+	not_spine_buttons_asm(ground_to_air_success, ground_to_air_failure);
 }
 
 void ground_to_air_acid_drop(void *comp) {
-	not_spine_buttons_asm(0x005df02f, 0x005defff);
+	not_spine_buttons_asm(ground_to_air_acid_drop_success, ground_to_air_acid_drop_failure);
 }
 
 void also_ground_to_air_acid_drop(void *comp) {
-	spine_buttons_asm(0x005df3a5, 0x005df7af);
+	spine_buttons_asm(also_ground_to_air_acid_drop_success, also_ground_to_air_acid_drop_failure);
 }
 
 void __stdcall in_air_acid_drop(void *comp) {
-	not_spine_buttons_asm(0x005e0d19, 0x005e0d23);
+	not_spine_buttons_asm(in_air_acid_drop_success, in_air_acid_drop_failure);
 }
 
 void walk_acid_drop(void *comp) {
@@ -958,7 +1146,7 @@ void walk_acid_drop(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005fcdc7	/* false */
+		push walk_acid_drop_failure	/* false */
 		ret 0x08
 
 	success:
@@ -966,7 +1154,7 @@ void walk_acid_drop(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005fcd0a	/* true */
+		push walk_acid_drop_success	/* true */
 		ret 0x08
 	}
 }
@@ -988,7 +1176,7 @@ void not_bike_lip_check(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005ceb7d	/* false */
+		push not_bike_lip_check_failure	/* false */
 		ret 0x08
 
 	success:
@@ -996,7 +1184,7 @@ void not_bike_lip_check(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005ce9c8	/* true */
+		push not_bike_lip_check_success	/* true */
 		ret 0x08
 	}
 }
@@ -1018,7 +1206,7 @@ void bike_lip_check(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005dc446	/* false */
+		push bike_lip_check_failure	/* false */
 		ret 0x08
 
 	success:
@@ -1026,7 +1214,7 @@ void bike_lip_check(void *comp) {
 		pop eax
 		mov esp, ebp
 		pop ebp
-		push 0x005dc327	/* true */
+		push bike_lip_check_success	/* true */
 		ret 0x08
 	}
 }
@@ -1035,27 +1223,27 @@ void patchPs2Buttons() {
 	//patchCall((void *)(0x005d471c), rolling_friction_wrapper);
 	//patchByte((void *)(0x005d471c), 0xe9);
 
-	patchByte((void *)(0x0046ee86 + 2), 0x05);	// change PC platform to gamecube.  this just makes it default to ps2 controls
+	patchByte((void *)(addr_platform + 2), 0x05);	// change PC platform to ps2.  this just makes it default to ps2 controls
 	//patchByte((void *)(0x0046ef29 + 2), 0x05);	// do ps2 things if xbox
 
 	// in air
-	patchByte((void *)(0x005dff41), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005dff41 + 1), in_air_to_break);
+	patchByte((void *)(addr_r2l2_air), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_air + 1), in_air_to_break);
 
 	// break vert
-	patchByte((void *)(0x005da2dc), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005da2dc + 1), break_vert);
+	patchByte((void *)(addr_r2l2_break_vert1), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_break_vert1 + 1), break_vert);
 
-	patchByte((void *)(0x005da306), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005da306 + 1), other_break_vert);
+	patchByte((void *)(addr_r2l2_break_vert2), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_break_vert2 + 1), other_break_vert);
 
 	// bike lip check
 	//patchByte((void *)(0x005da32c + 2), 0x00);
 	//patchByte((void *)(0x005da32c + 3), 0x01);
 
 	// lip jump?
-	patchByte((void *)(0x005c9ca1), 0x52);	// PUSH EBX
-	patchCall((void *)(0x005c9ca1 + 1), lip_jump);
+	patchByte((void *)(addr_r2l2_lip), 0x52);	// PUSH EBX
+	patchCall((void *)(addr_r2l2_lip + 1), lip_jump);
 
 	// check side
 	//patchByte((void *)(0x005dad77 + 2), 0xa0);
@@ -1063,8 +1251,8 @@ void patchPs2Buttons() {
 	//patchByte((void *)(0x005dad85 + 3), 0x01);
 
 	// air recovery
-	patchByte((void *)(0x005df970), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005df970 + 1), air_recovery);
+	patchByte((void *)(addr_r2l2_air_recover), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_air_recover + 1), air_recovery);
 
 	// bike lean/fast turn
 	//patchByte((void *)(0x005c8b4a + 2), 0xa0);
@@ -1072,38 +1260,38 @@ void patchPs2Buttons() {
 	//patchByte((void *)(0x005c8b5d + 3), 0x01);
 
 	// ground-to-air
-	patchByte((void *)(0x005dea28), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005dea28 + 1), ground_to_air);
+	patchByte((void *)(addr_r2l2_groundair), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_groundair + 1), ground_to_air);
 
 	// ground-to-air acid drop
-	patchByte((void *)(0x005defeb), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005defeb + 1), ground_to_air_acid_drop);
+	patchByte((void *)(addr_r2l2_groundair_acid1), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_groundair_acid1 + 1), ground_to_air_acid_drop);
 
 	// also ground-to-air acid drop
-	patchByte((void *)(0x005df389), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005df389 + 1), also_ground_to_air_acid_drop);
+	patchByte((void *)(addr_r2l2_groundair_acid2), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_groundair_acid2 + 1), also_ground_to_air_acid_drop);
 
 	// acid drop
-	patchByte((void *)(0x005e0d05), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005e0d05 + 1), in_air_acid_drop);
+	patchByte((void *)(addr_r2l2_acid_drop), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_acid_drop + 1), in_air_acid_drop);
 
 	// walk acid drop
-	patchByte((void *)(0x005fcceb), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005fcceb + 1), walk_acid_drop);
+	patchByte((void *)(addr_r2l2_walk_acid), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_walk_acid + 1), walk_acid_drop);
 
 	// bike lip
 	//patchByte((void *)(0x005ce99a + 2), 0x00);
 	//patchByte((void *)(0x005ce99a + 3), 0x01);
-	patchByte((void *)(0x005ce99a), 0x53);	// PUSH EBX
-	patchByte((void *)(0x005ce99a + 1), 0x55);	// PUSH EBP
-	patchByte((void *)(0x005ce99a + 2), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005ce99a + 3), not_bike_lip_check);
+	patchByte((void *)(addr_r2l2_bike_lip_neg), 0x53);	// PUSH EBX
+	patchByte((void *)(addr_r2l2_bike_lip_neg + 1), 0x55);	// PUSH EBP
+	patchByte((void *)(addr_r2l2_bike_lip_neg + 2), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_bike_lip_neg + 3), not_bike_lip_check);
 	
-	patchByte((void *)(0x005dc301), 0x56);	// PUSH ESI
-	patchCall((void *)(0x005dc301 + 1), bike_lip_check);
+	patchByte((void *)(addr_r2l2_bike_lip_pos), 0x56);	// PUSH ESI
+	patchCall((void *)(addr_r2l2_bike_lip_pos + 1), bike_lip_check);
 	// change trick selection to if r1 or l1 is pressed
-	patchByte((void *)(0x005dc9be + 2), 0x80);
-	patchByte((void *)(0x005dc9be + 3), 0x00);
+	patchByte((void *)(addr_r2l2_bike_lip_select + 2), 0x80);
+	patchByte((void *)(addr_r2l2_bike_lip_select + 3), 0x00);
 
 	// natas spin
 	//patchByte((void *)(0x005e0f01 + 2), 0xa0);
@@ -1111,40 +1299,53 @@ void patchPs2Buttons() {
 	//patchByte((void *)(0x005e0ef7 + 3), 0x01);
 
 	// stall
-	patchByte((void *)(0x005e0f8e + 2), 0x00);
-	patchByte((void *)(0x005e0f8e + 3), 0x01);
+	patchByte((void *)(addr_r2l2_stall1 + 2), 0x00);
+	patchByte((void *)(addr_r2l2_stall1 + 3), 0x01);
 
-	patchByte((void *)(0x005e2939 + 2), 0x00);
-	patchByte((void *)(0x005e2939 + 3), 0x01);
+	patchByte((void *)(addr_r2l2_stall2 + 2), 0x00);
+	patchByte((void *)(addr_r2l2_stall2 + 3), 0x01);
 
 	// bike fast spin/flip
-	patchByte((void *)(0x005d7d99 + 2), 0xa0);	// flip
-	patchByte((void *)(0x005d7e9f + 2), 0xa0);	// spin
+	patchByte((void *)(addr_bike_flip + 2), 0xa0);	// flip
+	patchByte((void *)(addr_bike_spin + 2), 0xa0);	// spin
 
 	// disable spin delay on l1/r1
-	patchNop((void *)(0x005cd230), 2);
-	patchNop((void *)(0x005cd2fb), 2);
+	patchNop((void *)(addr_spin_delay1), 2);
+	patchNop((void *)(addr_spin_delay2), 2);
 }
 
 void patchInput() {
 	// patch SIO::Device
 	// process
-	patchThisToCdecl((void *)0x0062b090, &processController);	// 0062b240
-	patchByte((void *)(0x0062b090 + 7), 0xC3);
+	patchThisToCdecl((void *)addr_device_processs, &processController);	// 0062b240
+	patchByte((void *)(addr_device_processs + 7), 0xC3);
 
 	// set_actuator
 	// don't call read_data in activate_actuators
-	patchNop(0x0062ade1, 5);
-	patchCall(0x0062ae64, set_actuators);
-	patchCall(0x0062aec7, set_actuators);
-	patchCall(0x0062af6f, set_actuators);
-	patchCall(0x0062b001, set_actuators);
-	patchCall(0x0062b05f, set_actuators);
+	patchNop(addr_call_device_read, 5);
+	patchJmp(addr_set_actuators, set_actuators);
 	
 	// init input patch - nop direct input setup
-	patchNop(0x006b4c23, 45);
-	patchCall(0x006b4c23 + 5, &initManager);
+	patchNop(addr_init_dinput, 45);
+	patchCall(addr_init_dinput + 5, &initManager);
 
 	// some config call relating to the dinput devices
-	patchNop(0x0054481c, 5);
+	patchNop(addr_deinit_dinput, 5);
+
+	// poll events during fmvs and when unfocused
+	// cmp shouldquit, 1: 80 3d 98 21 8b 00 01
+	// unfocused
+	/*patchNop(addr_unfocuspoll, 47);
+	patchCall(addr_unfocuspoll, processEventsUnfocused);
+	
+	// fmv
+	patchNop(addr_fmvpoll, 41);
+	patchCall(addr_fmvpoll, processEventsUnfocused);
+	patchByte(addr_fmvpoll + 5, 0x80);
+	patchByte(addr_fmvpoll + 6, 0x80);
+	patchDWord(addr_fmvpoll + 7, shouldQuit);
+	patchByte(addr_fmvpoll + 11, 0x01);
+	patchByte(addr_fmvpoll + 12, 0x75);
+	patchByte(addr_fmvpoll + 13, 0x38);*/
+
 }

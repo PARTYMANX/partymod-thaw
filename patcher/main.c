@@ -7,9 +7,13 @@
 #include <incbin/incbin.h>
 
 INCBIN(patch, "executable.bps");
+INCBIN(patch_alt, "executable_alt.bps");
 
 uint32_t crc32(const void *buf, size_t size);
 int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen, uint8_t **output, size_t *outputLen);
+
+uint8_t *patchData = NULL;
+uint32_t patchSize = 0;
 
 int main(int argc, char **argv) {
 	// open thaw.exe and dump contents
@@ -21,6 +25,17 @@ int main(int argc, char **argv) {
 		size_t filesize = ftell(f);
 		fseek(f, 0, SEEK_SET);
 
+		if (filesize == 3600384) {
+			patchData = gpatchData;
+			patchSize = gpatchSize;
+		} else if (filesize == 21442560) {
+			patchData = gpatch_altData;
+			patchSize = gpatch_altSize;
+		} else {
+			printf("This executable is unsupported!");
+			goto end;
+		}
+
 		uint8_t *buffer = malloc(filesize);
 
 		if (buffer) {
@@ -29,16 +44,16 @@ int main(int argc, char **argv) {
 
 			// check input crc (not using the one in the bps due to multiple valid executables)
 			uint32_t inputcrc = crc32(buffer, filesize);
-			if (inputcrc != 0xa8290acf) {
+			if (inputcrc != 0xa8290acf && inputcrc != 0xae1cc8f3) {
 				printf("INPUT CRC DOES NOT MATCH EXPECTED: %08x\n", inputcrc);
 				printf("Make sure THAW Patch 1.01 is installed\n");
-				printf("Patch Failed!\n");
+				//printf("Patch Failed!\n");
 			}
 
 			// patch
 			uint8_t *patchedBuffer = NULL;
 			size_t patchedLen = 0;
-			int result = applyPatch(gpatchData, gpatchSize, buffer, filesize, &patchedBuffer, &patchedLen);
+			int result = applyPatch(patchData, patchSize, buffer, filesize, &patchedBuffer, &patchedLen);
 			if (result) {
 				printf("Patching Failed!\n");
 
@@ -47,12 +62,13 @@ int main(int argc, char **argv) {
 
 			// check crc (again, not using the one in the bps due to multiple valid executables)
 			uint32_t outputcrc = crc32(patchedBuffer, patchedLen);
-			if (outputcrc != 0x6a8f87e3) {
+			if (outputcrc != 0x6a8f87e3 && outputcrc != 0x8df76a2c) {
 				printf("OUTPUT CRC DOES NOT MATCH EXPECTED: %08x\n", outputcrc);
 				printf("Make sure THAW Patch 1.01 is installed\n");
-				printf("Patch Failed!\n");
+				printf("Output may not work!");
+				//printf("Patch Failed!\n");
 
-				goto end;
+				//goto end;
 			}
 
 			// write to THAWPM.exe

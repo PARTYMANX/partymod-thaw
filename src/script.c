@@ -8,8 +8,11 @@
 
 #include <global.h>
 #include <patch.h>
+#include <patchcache.h>
 
 #include <hash.h>
+
+// GetPlatform: 8b 0d ?? ?? ?? ?? 33 c0 49 83 f9 07 0f 87 8e 00 00 00	// make sure to look back at this one to see how it works
 
 INCBIN(groundtricks, "patches/groundtricks.bps");
 INCBIN(levelselect_scripts, "patches/levelselect_scripts.bps");
@@ -144,13 +147,101 @@ void initScriptPatches() {
 	printf("Done!\n");
 }
 
-void registerPS2ControlPatch() {
-	registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
+uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b00;
+uint32_t (__cdecl *addr_parseqbsecondfunc)(uint32_t, char *) = (void *)0x0040a8f0;
+void (__cdecl *addr_parseqbthirdfunc)(uint8_t *, uint8_t *, void *, uint32_t, int) = (void *)0x0040a110;
+void *addr_parseqb = NULL;
+void *addr_unkparseqbfp = NULL;	// function pointer passed into third func
+void *addr_isps2 = NULL;
+void *addr_isxenon = NULL;
+void *addr_ispc = NULL;
+void *addr_isce = NULL;
+
+uint8_t __cdecl isPs2Wrapper(uint8_t *idk, uint8_t *script) {
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		//printf("ISPS2 FROM 0x%08x!\n", scriptcrc);
+	}
+
+	if (scriptcrc == 0x0fb58a23 || scriptcrc == 0xa6c34163) {
+		// if BertStanceState or switchRegular, return true;
+		return 1;
+	}
+
+	return 0;
 }
 
-uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b00;
-uint32_t (__cdecl *unk_0040a8f0)(uint32_t, char *) = (void *)0x0040a8f0;
-void (__cdecl *unk_0040a110)(uint8_t *, uint8_t *, void *, uint32_t, int) = (void *)0x0040a110;
+uint8_t __cdecl isXenonWrapper(uint8_t *idk, uint8_t *script) {
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		//printf("ISXENON FROM 0x%08x!\n", scriptcrc);
+	}
+
+	return 0;
+}
+
+uint8_t __cdecl isPCWrapper(uint8_t *idk, uint8_t *script) {
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		//printf("ISPC FROM 0x%08x!\n", scriptcrc);
+	}
+
+	return 1;
+}
+
+uint8_t __cdecl isCEWrapper(uint8_t *idk, uint8_t *script) {
+	// makes the game collector's edition 
+	// NOTE: doesn't entirely work.  needs files for marseille and atlanta
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		//printf("IS COLLECTORS EDITION FROM 0x%08x!\n", scriptcrc);
+	}
+
+	return 1;
+}
+
+void registerPS2ControlPatch() {
+	//registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
+	patchJmp(addr_isps2, isPs2Wrapper);
+	patchJmp(addr_isxenon, isXenonWrapper);
+	patchJmp(addr_ispc, isPCWrapper);
+}
+
+uint8_t get_script_offsets() {
+	uint8_t *parseqbAnchor = NULL;
+	uint8_t *crc32Anchor = NULL;
+	uint8_t *secondfuncAnchor = NULL;
+	uint8_t *collectorseditionAnchor = NULL;
+
+	uint8_t result = 0;
+	result |= patch_cache_pattern("8b 44 24 08 8b 15 ?? ?? ?? ?? 55 56 8b 74 24 0c 8b 4e 04", &addr_unkparseqbfp);
+	result |= patch_cache_pattern("8b 44 24 04 55 8b 68 04 56 8d 70 1c 03 e8", &addr_parseqbthirdfunc);
+	result |= patch_cache_pattern("6a 01 57 50 e8 ?? ?? ?? ?? 8b 46 10 50", &parseqbAnchor);
+	result |= patch_cache_pattern("c1 e1 08 0b ca c1 e1 08 0b c8 51 e8 ?? ?? ?? ?? 83 c4 08", &secondfuncAnchor);
+	result |= patch_cache_pattern("a1 ?? ?? ?? ?? 83 f8 01 74 0d 83 f8 02 74 08", &addr_isps2);
+	result |= patch_cache_pattern("83 3d ?? ?? ?? ?? 06 0f 94 c0 c3", &addr_isxenon);
+	result |= patch_cache_pattern("83 3d ?? ?? ?? ?? 07 0f 94 c0 c3", &addr_ispc);
+	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 83 c4 08 84 c0 6a 01 74 07 68 b1 44 be 9d", &collectorseditionAnchor);
+
+	if (result) {
+		addr_parseqb = *(uint32_t *)(parseqbAnchor + 5) + parseqbAnchor + 9;
+		their_crc32 = *(uint32_t *)(parseqbAnchor + 14) + parseqbAnchor + 18;
+		addr_parseqbsecondfunc = *(uint32_t *)(secondfuncAnchor + 12) + secondfuncAnchor + 16;
+		addr_isce = *(uint32_t *)(collectorseditionAnchor + 1) + collectorseditionAnchor + 5;
+	} else {
+		printf("FAILED TO FIND SCRIPT OFFSETS\n");
+	}
+
+	return result;
+}
 
 // TODO: reverse the patching process: check the cached patch list first, then process if there is a patch to be applied.
 // an additional nice thing to have would be to cache patches to file (so that they could, say, fall off of a truck)
@@ -231,15 +322,18 @@ void __cdecl ParseQbWrapper(char *filename, uint8_t *script, int assertDuplicate
 
 	// original function
 	uint32_t crc = their_crc32(filename);
-	uint32_t idk = unk_0040a8f0(crc, filename);
-	unk_0040a110(scriptOut, scriptOut, ((void *)0x00417170), crc, idk & 0xffffff00 | (assertDuplicateSymbols != 0));
+	uint32_t idk = addr_parseqbsecondfunc(crc, filename);
+	addr_parseqbthirdfunc(scriptOut, scriptOut, addr_unkparseqbfp, crc, idk & 0xffffff00 | (assertDuplicateSymbols != 0));
 
 	script[0] = 1;
 }
 
 void patchScriptHook() {
-	patchCall(0x0040de30, ParseQbWrapper);
-	patchByte(0x0040de30, 0xe9);	// change CALL to JMP
+	//printf("patching 0x%08x...\n", addr_parseqb);
+	patchCall(addr_parseqb, ParseQbWrapper);
+	patchByte(addr_parseqb, 0xe9);	// change CALL to JMP
+
+	//patchJmp(addr_isce, isCEWrapper);
 }
 
 const uint32_t crc32lut[] = {

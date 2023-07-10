@@ -26,11 +26,17 @@ struct keybinds {
 	SDL_Scancode left;
 	SDL_Scancode up;
 	SDL_Scancode down;
+	SDL_Scancode feeble;
 
 	SDL_Scancode cameraRight;
 	SDL_Scancode cameraLeft;
 	SDL_Scancode cameraUp;
 	SDL_Scancode cameraDown;
+
+	SDL_Scancode itemRight;
+	SDL_Scancode itemLeft;
+	SDL_Scancode itemUp;
+	SDL_Scancode itemDown;
 };
 
 // a recreation of the SDL_GameControllerButton enum, but with the addition of right/left trigger
@@ -103,6 +109,7 @@ void loadControllerBinds(struct controllerbinds *bindsOut);
 void loadKeyBinds(struct keybinds *bindsOut);
 int getIniBool(char *section, char *key, int def, char *file);
 
+uint8_t get_config_offsets();
 void patchLoadConfig();
 void dumpSettings();
 void patchWindow();

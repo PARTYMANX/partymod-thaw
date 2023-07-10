@@ -1,20 +1,17 @@
 # PARTYMOD for THAW
-⚠NOTE: Because of DRM and other issues (one being the lack of clean images of the game), this patch is specific to a single version of the executable.  Sorry about that!⚠️
 This is a patch for THAW 1.01 to improve its input handling as well as smooth out a few other parts of the PC port.
 The patch is designed to keep the game as original as possible, and leave its files unmodified.
 
 This patch was originally developed to provide input patches to be integrated into reTHAWed.  Thanks to the reTHAWed team (especially uzis and trxbail) for some assistance and inspiring this patch!
-Currently the patch is somewhat incomplete, but I lost some interest in further development in favor of other projects at the moment (plus it looks like some amount of overhauling may be necessary).  Sorry about any rough edges, I hope to smooth some of those out soon.
 
 ### Features and Fixes
 * Replaced input system entirely with new, modern system using the SDL2 library
 * Improved window handling allowing for custom resolutions and configurable windowing
 * Replaced configuration files with new INI-based system (see partymod.ini)
-* Custom configurator program to handle new configuration files (NOT DONE)
+* Custom configurator program to handle new configuration files
 * Fixes an issue with the level select where it sometimes doesn't appear
 
 ### Installation
-⚠HUGE NOTE: THIS PATCH ONLY WORKS WITH A THAW EXECUTABLE WITH THE SHA-256 OF `32c15de0a0f88b667128fece494395d69220d7c9ed5c2beba20dbf99e8528a8e`!  SORRY IT'S SO SPECIFIC⚠️
 1. Download PARTYMOD from the releases tab
 2. Make sure THAW (English) is installed and the 1.01 patch is applied, remove the widescreen mod if it is installed (delete dinput8.dll)
 3. Extract this zip folder into your THAW installation `game/` directory
