@@ -568,19 +568,19 @@ void pollKeyboard(device *dev) {
 	}
 		
 	// d-pad
-	if (keyboardState[keybinds.up]) {
+	if (keyboardState[keybinds.itemUp]) {
 		dev->controlData[2] |= 0x01 << 4;
 		dev->controlData[10] = 0xFF;
 	}
-	if (keyboardState[keybinds.right]) {
+	if (keyboardState[keybinds.itemRight]) {
 		dev->controlData[2] |= 0x01 << 5;
 		dev->controlData[8] = 0xFF;
 	}
-	if (keyboardState[keybinds.down]) {
+	if (keyboardState[keybinds.itemDown]) {
 		dev->controlData[2] |= 0x01 << 6;
 		dev->controlData[11] = 0xFF;
 	}
-	if (keyboardState[keybinds.left]) {
+	if (keyboardState[keybinds.itemLeft]) {
 		dev->controlData[2] |= 0x01 << 7;
 		dev->controlData[9] = 0xFF;
 	}
@@ -606,18 +606,18 @@ void pollKeyboard(device *dev) {
 	// left
 	// x
 	if (keyboardState[keybinds.left] && !keyboardState[keybinds.right]) {
-		dev->controlData[6] = 0;
+		dev->controlData[6] = (keyboardState[keybinds.feeble]) ? 64 : 0;
 	}
 	if (keyboardState[keybinds.right] && !keyboardState[keybinds.left]) {
-		dev->controlData[6] = 255;
+		dev->controlData[6] = (keyboardState[keybinds.feeble]) ? 192 : 255;
 	}
 
 	// y
 	if (keyboardState[keybinds.up] && !keyboardState[keybinds.down]) {
-		dev->controlData[7] = 0;
+		dev->controlData[7] = (keyboardState[keybinds.feeble]) ? 64 : 0;
 	}
 	if (keyboardState[keybinds.down] && !keyboardState[keybinds.up]) {
-		dev->controlData[7] = 255;
+		dev->controlData[7] = (keyboardState[keybinds.feeble]) ? 192 : 255;
 	}
 }
 
@@ -1093,72 +1093,42 @@ __asm failure:	\
 	__asm ret 0x08	\
 }
 
-//uint8_t *addr_r2l2_air = (void *)(0x005dff41);	// PUSH ESI
-// 8a 93 80 00 00 00 84 d2 74 0a
-// good
 void __stdcall in_air_to_break(void *comp) {
 	spine_buttons_asm(in_air_to_break_success, in_air_to_break_failure);
 }
 
-//uint8_t *addr_r2l2_break_vert1 = (void *)(0x005da2dc);	// PUSH ESI
-// 8a 87 80 00 00 00 84 c0 74 0a
-// questionable (probably fine???)
 void break_vert(void *comp) {
 	not_spine_buttons_asm(break_vert_success, break_vert_failure);
 }
 
-//uint8_t *addr_r2l2_break_vert2 = (void *)(0x005da306);	// PUSH ESI
-// 8a 87 80 00 00 00 84 c0 74 0e
-// questionable (almost definitely fine)
 void other_break_vert(void *comp) {
 	not_spine_buttons_asm(other_break_vert_success, other_break_vert_failure);
 }
 
-//uint8_t *addr_r2l2_lip = (void *)(0x005c9ca1);	// PUSH EBX
-// 8a 87 80 00 00 00 84 c0 0f 84 92 00 00 00
-// good
 void lip_jump(void *comp) {
 	spine_buttons_asm(lip_jump_success, lip_jump_failure);
 }
 
-//uint8_t *addr_r2l2_air_recover = (void *)(0x005df970);	// PUSH ESI
-// 8a 83 80 00 00 00 84 c0 74 11
-// good
 void air_recovery(void *comp) {
 	spine_buttons_asm(air_recovery_success, air_recovery_failure);
 }
 
-//uint8_t *addr_r2l2_groundair = (void *)(0x005dea28);	// PUSH ESI
-// 8a 85 80 00 00 00 84 c0 74 0a
-// questionable (probably good)
 void ground_to_air(void *comp) {
 	not_spine_buttons_asm(ground_to_air_success, ground_to_air_failure);
 }
 
-//uint8_t *addr_r2l2_groundair_acid1 = (void *)(0x005defeb);	// PUSH ESI
-// 8a 85 80 00 00 00 84 c0 74 3a
-// questionable (probably good)
 void ground_to_air_acid_drop(void *comp) {
 	not_spine_buttons_asm(ground_to_air_acid_drop_success, ground_to_air_acid_drop_failure);
 }
 
-//uint8_t *addr_r2l2_groundair_acid2 = (void *)(0x005df389);	// PUSH ESI
-// 8a 85 80 00 00 00 84 c0 0f 84 18 04 00 00
-// questionable (probably good)
 void also_ground_to_air_acid_drop(void *comp) {
 	spine_buttons_asm(also_ground_to_air_acid_drop_success, also_ground_to_air_acid_drop_failure);
 }
 
-//uint8_t *addr_r2l2_acid_drop = (void *)(0x005e0d05);	// PUSH ESI
-// 8a 88 80 00 00 00 84 c9 74 0a
-// questionable (probably good)
 void __stdcall in_air_acid_drop(void *comp) {
 	not_spine_buttons_asm(in_air_acid_drop_success, in_air_acid_drop_failure);
 }
 
-//uint8_t *addr_r2l2_walk_acid = (void *)(0x005fcceb);	// PUSH ESI
-// 8a 88 a0 00 00 00 83 c0 20 84 c9 0f 84 cb 00 00 00
-// good
 void walk_acid_drop(void *comp) {
 	__asm {
 		push eax
@@ -1189,9 +1159,6 @@ void walk_acid_drop(void *comp) {
 	}
 }
 
-//uint8_t *addr_r2l2_bike_lip_neg = (void *)(0x005ce99a);	// PUSH EBX
-// 8a 88 e0 00 00 00 84 c9 53 55 74 14
-// good
 void not_bike_lip_check(void *comp) {
 	__asm {
 		push eax
@@ -1222,9 +1189,6 @@ void not_bike_lip_check(void *comp) {
 	}
 }
 
-//uint8_t *addr_r2l2_bike_lip_pos = (void *)(0x005dc301);	// PUSH ESI
-// 8a 85 e0 00 00 00 84 c0 0f 84 37 01 00 00
-// good
 void bike_lip_check(void *comp) {
 	__asm {
 		push eax

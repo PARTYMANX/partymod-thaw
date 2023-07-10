@@ -50,18 +50,18 @@ target_include_directories(partymod PUBLIC
 	${INCLUDES}
 )
 
-#add_executable(partyconfig)
+add_executable(partyconfig)
 
-#target_sources(partyconfig PUBLIC config/main.c)
-#target_link_libraries(partyconfig PRIVATE 
-#	${LIBS}
-#	comctl32.lib
-#	UxTheme.lib
-#)
-#target_include_directories(partyconfig PUBLIC
-#	"${PROJECT_SOURCE_DIR}/src"
-#	${INCLUDES}
-#)
+target_sources(partyconfig PUBLIC config/main.c)
+target_link_libraries(partyconfig PRIVATE 
+	${LIBS}
+	comctl32.lib
+	UxTheme.lib
+)
+target_include_directories(partyconfig PUBLIC
+	"${PROJECT_SOURCE_DIR}/src"
+	${INCLUDES}
+)
 
 add_executable(incbin)
 

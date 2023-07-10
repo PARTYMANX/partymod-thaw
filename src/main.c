@@ -15,6 +15,7 @@
 
 #define VERSION_NUMBER_MAJOR 0
 #define VERSION_NUMBER_MINOR 10
+#define VERSION_NUMBER_FIX 0
 
 void *initAddr = NULL;
 
@@ -59,7 +60,7 @@ void initPatch() {
 		freopen_s(&fDummy, "CONOUT$", "w", stderr);
 		freopen_s(&fDummy, "CONOUT$", "w", stdout);
 	}
-	printf("PARTYMOD for THAW %d.%d\n", VERSION_NUMBER_MAJOR, VERSION_NUMBER_MINOR);
+	printf("PARTYMOD for THAW %d.%d.%d\n", VERSION_NUMBER_MAJOR, VERSION_NUMBER_MINOR, VERSION_NUMBER_FIX);
 
 	printf("DIRECTORY: %s\n", executableDirectory);
 

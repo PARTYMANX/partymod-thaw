@@ -284,8 +284,8 @@ void loadSettings() {
 	graphics_settings.clipping_distance = GetPrivateProfileInt("Graphics", "ClippingDistance", 100, configFile);
 	graphics_settings.fog = getIniBool("Graphics", "Fog", 0, configFile);
    
-	resX = GetPrivateProfileInt("Graphics", "ResolutionX", 640, configFile);
-	resY = GetPrivateProfileInt("Graphics", "ResolutionY", 480, configFile);
+	resX = GetPrivateProfileInt("Graphics", "ResolutionX", 0, configFile);
+	resY = GetPrivateProfileInt("Graphics", "ResolutionY", 0, configFile);
 	if (!isWindowed) {
 		isWindowed = getIniBool("Graphics", "Windowed", 0, configFile);
 	}
@@ -329,11 +329,17 @@ void loadKeyBinds(struct keybinds *bindsOut) {
 		bindsOut->left = GetPrivateProfileInt(KEYBIND_SECTION, "Left", SDL_SCANCODE_A, configFile);
 		bindsOut->up = GetPrivateProfileInt(KEYBIND_SECTION, "Forward", SDL_SCANCODE_W, configFile);
 		bindsOut->down = GetPrivateProfileInt(KEYBIND_SECTION, "Backward", SDL_SCANCODE_S, configFile);
+		bindsOut->feeble = GetPrivateProfileInt(KEYBIND_SECTION, "Feeble", SDL_SCANCODE_LSHIFT, configFile);
 
-		bindsOut->cameraRight = GetPrivateProfileInt(KEYBIND_SECTION, "CameraRight", SDL_SCANCODE_L, configFile);
-		bindsOut->cameraLeft = GetPrivateProfileInt(KEYBIND_SECTION, "CameraLeft", SDL_SCANCODE_J, configFile);
-		bindsOut->cameraUp = GetPrivateProfileInt(KEYBIND_SECTION, "CameraUp", SDL_SCANCODE_I, configFile);
-		bindsOut->cameraDown = GetPrivateProfileInt(KEYBIND_SECTION, "CameraDown", SDL_SCANCODE_K, configFile);
+		bindsOut->cameraRight = GetPrivateProfileInt(KEYBIND_SECTION, "CameraRight", SDL_SCANCODE_KP_MULTIPLY, configFile);
+		bindsOut->cameraLeft = GetPrivateProfileInt(KEYBIND_SECTION, "CameraLeft", SDL_SCANCODE_KP_DIVIDE, configFile);
+		bindsOut->cameraUp = GetPrivateProfileInt(KEYBIND_SECTION, "CameraUp", SDL_SCANCODE_KP_PLUS, configFile);
+		bindsOut->cameraDown = GetPrivateProfileInt(KEYBIND_SECTION, "CameraDown", SDL_SCANCODE_KP_MINUS, configFile);
+
+		bindsOut->itemRight = GetPrivateProfileInt(KEYBIND_SECTION, "ItemRight", SDL_SCANCODE_L, configFile);
+		bindsOut->itemLeft = GetPrivateProfileInt(KEYBIND_SECTION, "ItemLeft", SDL_SCANCODE_J, configFile);
+		bindsOut->itemUp = GetPrivateProfileInt(KEYBIND_SECTION, "ItemUp", SDL_SCANCODE_I, configFile);
+		bindsOut->itemDown = GetPrivateProfileInt(KEYBIND_SECTION, "ItemDown", SDL_SCANCODE_K, configFile);
 	}
 }
 
