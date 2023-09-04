@@ -9,6 +9,7 @@
 #include <global.h>
 #include <patch.h>
 #include <patchcache.h>
+#include <input.h>
 
 #include <hash.h>
 
@@ -156,6 +157,39 @@ void *addr_isps2 = NULL;
 void *addr_isxenon = NULL;
 void *addr_ispc = NULL;
 void *addr_isce = NULL;
+void *addr_cfunclist = NULL;
+void *addr_cfunccount = NULL;
+void *addr_finishloads = NULL;
+void *addr_isLoadingLevel = NULL;
+void *addr_setscreenelementprops = NULL;
+void *addr_playmovie = NULL;
+
+// fixes crashes when going to menu
+uint8_t __cdecl finishloadsWrapper(uint8_t *idk, uint8_t *script) {
+	uint8_t (__cdecl *their_finishloads)(uint8_t *, uint8_t *) = addr_finishloads;
+	uint8_t *isLoadingLevel = addr_isLoadingLevel;
+
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		//printf("FINISH LOADING FROM 0x%08x!\n", scriptcrc);
+	}
+
+	if (scriptcrc == 0x39c58ea1 || scriptcrc == 0x17b4f51c) {
+		uint8_t tmp = *isLoadingLevel;
+		*isLoadingLevel = 0;
+
+		their_finishloads(idk, script);
+
+		*isLoadingLevel = tmp;
+
+		return 1;
+	}
+
+	return their_finishloads(idk, script);
+}
+
 
 uint8_t __cdecl isPs2Wrapper(uint8_t *idk, uint8_t *script) {
 	uint32_t scriptcrc = 0;
@@ -170,6 +204,10 @@ uint8_t __cdecl isPs2Wrapper(uint8_t *idk, uint8_t *script) {
 		return 1;
 	}
 
+	if (scriptcrc == 0xF573F077 || scriptcrc == 0x2963D437 || scriptcrc == 0xE0C4DA1A) {
+		printf("ISPS2 0x%08x!!\n", scriptcrc);
+	}
+
 	return 0;
 }
 
@@ -181,6 +219,10 @@ uint8_t __cdecl isXenonWrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISXENON FROM 0x%08x!\n", scriptcrc);
 	}
 
+	if (scriptcrc == 0xF573F077 || scriptcrc == 0x2963D437 || scriptcrc == 0xE0C4DA1A) {
+		printf("ISXENON 0x%08x!!\n", scriptcrc);
+	}
+
 	return 0;
 }
 
@@ -190,6 +232,10 @@ uint8_t __cdecl isPCWrapper(uint8_t *idk, uint8_t *script) {
 	if (script) {
 		scriptcrc = *(uint32_t *)(script + 0xd0);
 		//printf("ISPC FROM 0x%08x!\n", scriptcrc);
+	}
+
+	if (scriptcrc == 0xF573F077 || scriptcrc == 0x2963D437 || scriptcrc == 0xE0C4DA1A) {
+		printf("ISPC 0x%08x!!\n", scriptcrc);
 	}
 
 	return 1;
@@ -208,11 +254,111 @@ uint8_t __cdecl isCEWrapper(uint8_t *idk, uint8_t *script) {
 	return 1;
 }
 
+struct component {
+	uint8_t unk;
+	uint8_t type;
+	uint16_t size;
+	uint32_t name;
+	void *data;
+	struct component *next;
+};
+
+struct scrStruct {
+	void *unk;
+	struct component *head;
+};
+
+struct scrobjArray {
+	void *unk;
+	uint32_t size;
+	void *data;
+};
+
+uint8_t __cdecl SetScreenElementPropsWrapper(uint8_t *params, uint8_t *script) {
+	uint8_t (__cdecl *their_func)(uint8_t *, uint8_t *) = addr_setscreenelementprops;
+
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		//printf("SET SCREEN ELEMENTS PROP FROM 0x%08x!\n", scriptcrc);
+	}
+
+	// create_speech_box
+	if (scriptcrc == 0xE0C4DA1A) {	// TODO: check setting
+		// find event_handlers object 
+		struct component *node = ((struct scrStruct *)params)->head;
+		while (node && node->name != 0x475BF03C) {
+			node = node->next;
+		}
+		if (node) {
+			// get array
+			struct scrobjArray *arr = node->data;
+			for (int i = 0; i < arr->size; i++) {
+				struct component *type = ((struct scrStruct **)arr->data)[i]->head;
+			
+				if (type->data == 0xCB5C11FA) {	// pad_option
+					type->data = 0x456D7433;	// change to pad_circle
+				} else if (type->data == 0x456D7433) {	// pad_circle
+					type->data = 0xCB5C11FA;	// pad_option
+				}
+			}
+		}
+	}
+
+	return their_func(params, script);
+}
+
+// event map:
+// get frontend class from SetButtonEventMappings + 3
+//      *(uint *)(param_1 + 0xe4 + iVar4 * 8) = uVar7; = button index
+//      *(int *)(param_1 + 0xe8 + iVar4 * 8) = iVar3; = event type
+
+
 void registerPS2ControlPatch() {
+	// NOTES ON CHANGING TALK BUTTON:
+
 	//registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
+	//registerPatch("scripts\\engine\\menu\\menubuttonremap.qb.Wpc");
 	patchJmp(addr_isps2, isPs2Wrapper);
 	patchJmp(addr_isxenon, isXenonWrapper);
 	patchJmp(addr_ispc, isPCWrapper);
+}
+
+struct cfunclistentry {
+	char *name;
+	void *func;
+};
+
+uint8_t wrap_cfunc(char *name, void *wrapper, void **addr_out) {
+	int (*getCfuncCount)() = addr_cfunccount;
+
+	int count = getCfuncCount();
+	struct cfunclistentry *cfunclist = addr_cfunclist;
+
+	for (int i = 0; i < count; i++) {
+		if (strcmp(cfunclist[i].name, name) == 0) {
+			*addr_out = cfunclist[i].func;
+			patchDWord(&(cfunclist[i].func), wrapper);
+			return 1;
+		}
+	}
+
+	printf("Couldn't find cfunc %s!\n", name);
+
+	return 0;
+}
+
+uint8_t install_cfunc_patches() {
+	uint8_t result = 1;
+
+	result &= wrap_cfunc("FinishPendingZoneLoads", finishloadsWrapper, &addr_finishloads);
+	addr_isLoadingLevel = *(uint32_t *)((uint32_t) addr_finishloads + 24);
+	//result &= wrap_cfunc("SetScreenElementProps", SetScreenElementPropsWrapper, &addr_setscreenelementprops);	// breaks shops
+
+	if (!result) {
+		printf("FAILED TO FIND CFUNC OFFSETS!\n");
+	}
 }
 
 uint8_t get_script_offsets() {
@@ -220,25 +366,31 @@ uint8_t get_script_offsets() {
 	uint8_t *crc32Anchor = NULL;
 	uint8_t *secondfuncAnchor = NULL;
 	uint8_t *collectorseditionAnchor = NULL;
+	uint8_t *cfunclistAnchor = NULL;
 
-	uint8_t result = 0;
-	result |= patch_cache_pattern("8b 44 24 08 8b 15 ?? ?? ?? ?? 55 56 8b 74 24 0c 8b 4e 04", &addr_unkparseqbfp);
-	result |= patch_cache_pattern("8b 44 24 04 55 8b 68 04 56 8d 70 1c 03 e8", &addr_parseqbthirdfunc);
-	result |= patch_cache_pattern("6a 01 57 50 e8 ?? ?? ?? ?? 8b 46 10 50", &parseqbAnchor);
-	result |= patch_cache_pattern("c1 e1 08 0b ca c1 e1 08 0b c8 51 e8 ?? ?? ?? ?? 83 c4 08", &secondfuncAnchor);
-	result |= patch_cache_pattern("a1 ?? ?? ?? ?? 83 f8 01 74 0d 83 f8 02 74 08", &addr_isps2);
-	result |= patch_cache_pattern("83 3d ?? ?? ?? ?? 06 0f 94 c0 c3", &addr_isxenon);
-	result |= patch_cache_pattern("83 3d ?? ?? ?? ?? 07 0f 94 c0 c3", &addr_ispc);
-	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 83 c4 08 84 c0 6a 01 74 07 68 b1 44 be 9d", &collectorseditionAnchor);
+	uint8_t result = 1;
+	result &= patch_cache_pattern("8b 44 24 08 8b 15 ?? ?? ?? ?? 55 56 8b 74 24 0c 8b 4e 04", &addr_unkparseqbfp);
+	result &= patch_cache_pattern("8b 44 24 04 55 8b 68 04 56 8d 70 1c 03 e8", &addr_parseqbthirdfunc);
+	result &= patch_cache_pattern("6a 01 57 50 e8 ?? ?? ?? ?? 8b 46 10 50", &parseqbAnchor);
+	result &= patch_cache_pattern("c1 e1 08 0b ca c1 e1 08 0b c8 51 e8 ?? ?? ?? ?? 83 c4 08", &secondfuncAnchor);
+	result &= patch_cache_pattern("a1 ?? ?? ?? ?? 83 f8 01 74 0d 83 f8 02 74 08", &addr_isps2);
+	result &= patch_cache_pattern("83 3d ?? ?? ?? ?? 06 0f 94 c0 c3", &addr_isxenon);
+	result &= patch_cache_pattern("83 3d ?? ?? ?? ?? 07 0f 94 c0 c3", &addr_ispc);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? 83 c4 08 84 c0 6a 01 74 07 68 b1 44 be 9d", &collectorseditionAnchor);
+	result &= patch_cache_pattern("68 0b 19 50 a7 e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 50 68 ?? ?? ?? ??", &cfunclistAnchor);
 
 	if (result) {
 		addr_parseqb = *(uint32_t *)(parseqbAnchor + 5) + parseqbAnchor + 9;
 		their_crc32 = *(uint32_t *)(parseqbAnchor + 14) + parseqbAnchor + 18;
 		addr_parseqbsecondfunc = *(uint32_t *)(secondfuncAnchor + 12) + secondfuncAnchor + 16;
 		addr_isce = *(uint32_t *)(collectorseditionAnchor + 1) + collectorseditionAnchor + 5;
+		addr_cfunclist = *(uint32_t *)(cfunclistAnchor + 17);
+		addr_cfunccount = *(uint32_t *)(cfunclistAnchor + 11) + cfunclistAnchor + 15;
 	} else {
 		printf("FAILED TO FIND SCRIPT OFFSETS\n");
 	}
+
+	result &= install_cfunc_patches();
 
 	return result;
 }
@@ -332,6 +484,8 @@ void patchScriptHook() {
 	//printf("patching 0x%08x...\n", addr_parseqb);
 	patchCall(addr_parseqb, ParseQbWrapper);
 	patchByte(addr_parseqb, 0xe9);	// change CALL to JMP
+
+	patchDWord(0x006d546c, finishloadsWrapper);
 
 	//patchJmp(addr_isce, isCEWrapper);
 }

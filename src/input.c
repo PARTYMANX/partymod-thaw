@@ -7,6 +7,7 @@
 
 #include <global.h>
 #include <patch.h>
+#include <patchcache.h>
 #include <config.h>
 #include <script.h>
 
@@ -111,27 +112,27 @@ void *bike_lip_check_success = NULL;	// 0x005dc327
 void *bike_lip_check_failure = NULL;	// 0x005dc446
 
 uint8_t find_ps2_control_offsets() {
-	uint8_t result = 0;
-	result |= patch_cache_pattern("83 f8 07 56 c7 44 24 04 00 00 00 00", &addr_platform);
-	result |= patch_cache_pattern("8a 93 80 00 00 00 84 d2 74 0a", &addr_r2l2_air);
-	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 0a", &addr_r2l2_break_vert1);
-	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 0e", &addr_r2l2_break_vert2);
-	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 0f 84 92 00 00 00", &addr_r2l2_lip);
-	result |= patch_cache_pattern("8a 83 80 00 00 00 84 c0 74 11", &addr_r2l2_air_recover);
-	result |= patch_cache_pattern("8a 85 80 00 00 00 84 c0 74 0a", &addr_r2l2_groundair);
-	result |= patch_cache_pattern("8a 85 80 00 00 00 84 c0 74 3a", &addr_r2l2_groundair_acid1);
-	result |= patch_cache_pattern("8a 85 80 00 00 00 84 c0 0f 84 18 04 00 00", &addr_r2l2_groundair_acid2);
-	result |= patch_cache_pattern("8a 88 80 00 00 00 84 c9 74 0a", &addr_r2l2_acid_drop);
-	result |= patch_cache_pattern("8a 88 a0 00 00 00 83 c0 20 84 c9 0f 84 cb 00 00 00", &addr_r2l2_walk_acid);
-	result |= patch_cache_pattern("8a 88 e0 00 00 00 84 c9 53 55 74 14", &addr_r2l2_bike_lip_neg);
-	result |= patch_cache_pattern("8a 85 e0 00 00 00 84 c0 0f 84 37 01 00 00", &addr_r2l2_bike_lip_pos);
-	result |= patch_cache_pattern("8a 85 80 02 00 00 84 c0 8d 8c 24 c4 01 00 00", &addr_r2l2_bike_lip_select);
-	result |= patch_cache_pattern("8a 9f e0 00 00 00 84 db 0f 95 c2 83 c0 68", &addr_r2l2_stall1);
-	result |= patch_cache_pattern("8a 87 e0 00 00 00 84 c0 0f 84 5b 01 00 00", &addr_r2l2_stall2);
-	result |= patch_cache_pattern("8a 87 80 00 00 00 83 c4 18 84 c0 74 1b", &addr_bike_flip);
-	result |= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 1b", &addr_bike_spin);
-	result |= patch_cache_pattern("76 76 8b 4e 0c 68 43 db 57 49", &addr_spin_delay1);
-	result |= patch_cache_pattern("76 74 8b 4e 0c 68 43 db 57 49", &addr_spin_delay2);
+	uint8_t result = 1;
+	result &= patch_cache_pattern("83 f8 07 56 c7 44 24 04 00 00 00 00", &addr_platform);
+	result &= patch_cache_pattern("8a 93 80 00 00 00 84 d2 74 0a", &addr_r2l2_air);
+	result &= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 0a", &addr_r2l2_break_vert1);
+	result &= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 0e", &addr_r2l2_break_vert2);
+	result &= patch_cache_pattern("8a 87 80 00 00 00 84 c0 0f 84 92 00 00 00", &addr_r2l2_lip);
+	result &= patch_cache_pattern("8a 83 80 00 00 00 84 c0 74 11", &addr_r2l2_air_recover);
+	result &= patch_cache_pattern("8a 85 80 00 00 00 84 c0 74 0a", &addr_r2l2_groundair);
+	result &= patch_cache_pattern("8a 85 80 00 00 00 84 c0 74 3a", &addr_r2l2_groundair_acid1);
+	result &= patch_cache_pattern("8a 85 80 00 00 00 84 c0 0f 84 18 04 00 00", &addr_r2l2_groundair_acid2);
+	result &= patch_cache_pattern("8a 88 80 00 00 00 84 c9 74 0a", &addr_r2l2_acid_drop);
+	result &= patch_cache_pattern("8a 88 a0 00 00 00 83 c0 20 84 c9 0f 84 cb 00 00 00", &addr_r2l2_walk_acid);
+	result &= patch_cache_pattern("8a 88 e0 00 00 00 84 c9 53 55 74 14", &addr_r2l2_bike_lip_neg);
+	result &= patch_cache_pattern("8a 85 e0 00 00 00 84 c0 0f 84 37 01 00 00", &addr_r2l2_bike_lip_pos);
+	result &= patch_cache_pattern("8a 85 80 02 00 00 84 c0 8d 8c 24 c4 01 00 00", &addr_r2l2_bike_lip_select);
+	result &= patch_cache_pattern("8a 9f e0 00 00 00 84 db 0f 95 c2 83 c0 68", &addr_r2l2_stall1);
+	result &= patch_cache_pattern("8a 87 e0 00 00 00 84 c0 0f 84 5b 01 00 00", &addr_r2l2_stall2);
+	result &= patch_cache_pattern("8a 87 80 00 00 00 83 c4 18 84 c0 74 1b", &addr_bike_flip);
+	result &= patch_cache_pattern("8a 87 80 00 00 00 84 c0 74 1b", &addr_bike_spin);
+	result &= patch_cache_pattern("76 76 8b 4e 0c 68 43 db 57 49", &addr_spin_delay1);
+	result &= patch_cache_pattern("76 74 8b 4e 0c 68 43 db 57 49", &addr_spin_delay2);
 
 	if (result) {
 		in_air_to_break_success = addr_r2l2_air + 0x1e;
@@ -189,20 +190,29 @@ uint8_t *addr_init_dinput = NULL; // 6a 00 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 00 0
 uint8_t *addr_deinit_dinput = NULL; // e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 6a 01 6a 00 6a 00
 uint8_t *addr_fmvpoll = NULL;
 uint8_t *addr_unfocuspoll = NULL;
+uint8_t *addr_fmvunfocuspoll = NULL;
+uint8_t *addr_procevents = NULL;
+uint8_t *addr_recreatedevice = NULL;
 
 uint8_t get_input_offsets() {
 	uint8_t *quitfocusAnchor = NULL;
+	uint8_t *proceventsAnchor = NULL;
+	uint8_t *recreatedeviceAnchor = NULL;
 
-	uint8_t result = 0;
-	result |= patch_cache_pattern("a0 ?? ?? ?? ?? 84 c0 75 1a a0 ?? ?? ?? ?? 84 c0 0f 84 a9 00 00 00", &key_input);
-	result |= patch_cache_pattern("8b 81 d8 00 00 00 48 c6 81 e4 00 00 00 00", &addr_device_processs);
-	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 8e d8 00 00 00 b8 02 00 00 00", &addr_call_device_read);
-	result |= patch_cache_pattern("83 ec 44 55 56 8b 74 24 50", &addr_set_actuators);
-	result |= patch_cache_pattern("6a 00 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 00 08 00 00 50 e8", &addr_init_dinput);
-	result |= patch_cache_pattern("e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 6a 01 6a 00 6a 00", &addr_deinit_dinput);
-	result |= patch_cache_pattern("38 1d ?? ?? ?? ?? 74 c8 eb 07 c6 05 ?? ?? ?? ?? 01", &quitfocusAnchor);
-	result |= patch_cache_pattern("53 53 51 8d 54 24 48 52 ff 15", &addr_fmvpoll);
-	result |= patch_cache_pattern("6a 00 6a 00 50 8d 4c 24 4c 51 ff 15", &addr_unfocuspoll);
+	uint8_t result = 1;
+	result &= patch_cache_pattern("a0 ?? ?? ?? ?? 84 c0 75 1a a0 ?? ?? ?? ?? 84 c0 0f 84 a9 00 00 00", &key_input);
+	result &= patch_cache_pattern("8b 81 d8 00 00 00 48 c6 81 e4 00 00 00 00", &addr_device_processs);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 8e d8 00 00 00 b8 02 00 00 00", &addr_call_device_read);
+	result &= patch_cache_pattern("83 ec 44 55 56 8b 74 24 50", &addr_set_actuators);
+	result &= patch_cache_pattern("6a 00 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? 68 00 08 00 00 50 e8", &addr_init_dinput);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? 6a 01 6a 00 6a 00", &addr_deinit_dinput);
+	result &= patch_cache_pattern("38 1d ?? ?? ?? ?? 74 c8 eb 07 c6 05 ?? ?? ?? ?? 01", &quitfocusAnchor);
+	result &= patch_cache_pattern("53 53 51 8d 54 24 48 52 ff 15", &addr_fmvpoll);
+	result &= patch_cache_pattern("6a 00 6a 00 50 8d 4c 24 4c 51 ff 15", &addr_unfocuspoll);
+	result &= patch_cache_pattern("8b 0d ?? ?? ?? ?? 53 53 51 8d 54 24 48", &addr_fmvunfocuspoll);
+	//result &= patch_cache_pattern("83 ec 1c 56 8b 35 ?? ?? ?? ?? 6a 01", &addr_procevents);
+	result &= patch_cache_pattern("c6 05 ?? ?? ?? ?? 00 c6 05 ?? ?? ?? ?? 00 e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8", &proceventsAnchor);
+	result &= patch_cache_pattern("6a 01 6a 00 6a 00 a2 ?? ?? ?? ?? ff 15 ?? ?? ?? ?? 33 c0 c2 10 00", &recreatedeviceAnchor);
 
 	if (result) {
 		addr_isKeyboardOnScreen = *(uint32_t *)((uint8_t *)key_input + 1);
@@ -210,11 +220,13 @@ uint8_t get_input_offsets() {
 		unk3 = *(uint32_t *)((uint8_t *)key_input + 23);
 		isFocused_again = *(uint32_t *)(quitfocusAnchor + 2);
 		shouldQuit = *(uint32_t *)(quitfocusAnchor + 12);
+		addr_procevents = *(uint32_t *)(quitfocusAnchor + 17) + quitfocusAnchor + 21;
+		addr_recreatedevice = *(uint32_t *)(recreatedeviceAnchor + 7);
 	} else {
-		printf("FAILED TO FIND SCRIPT OFFSETS\n");
+		printf("FAILED TO FIND INPUT OFFSETS\n");
 	}
 
-	result |= find_ps2_control_offsets();
+	result &= find_ps2_control_offsets();
 
 	return result;
 }
@@ -829,12 +841,12 @@ void processEvent(SDL_Event *e) {
 			return;
 		case SDL_WINDOWEVENT:
 			if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-				//*isFocused_again = 0;
-			} else if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-				/*int *recreateDevice = (int *)0x00aab48e;
-				*recreateDevice = 1;*/
+				int *recreateDevice = (int *)addr_recreatedevice;
+				*recreateDevice = 0;
 
-				//*isFocused_again = 1;
+				*isFocused_again = 0;
+			} else if (e->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+				*isFocused_again = 1;
 			}
 			return;
 		case SDL_QUIT: {
@@ -1332,14 +1344,19 @@ void patchInput() {
 	// some config call relating to the dinput devices
 	patchNop(addr_deinit_dinput, 5);
 
+	patchJmp(addr_procevents, processEventsUnfocused);
+
 	// poll events during fmvs and when unfocused
 	// cmp shouldquit, 1: 80 3d 98 21 8b 00 01
 	// unfocused
-	/*patchNop(addr_unfocuspoll, 47);
+	patchNop(addr_unfocuspoll - 5, 53);
 	patchCall(addr_unfocuspoll, processEventsUnfocused);
+
+	patchNop(addr_fmvunfocuspoll, 48);
+	patchCall(addr_fmvunfocuspoll, processEventsUnfocused);
 	
 	// fmv
-	patchNop(addr_fmvpoll, 41);
+	/*patchNop(addr_fmvpoll, 41);
 	patchCall(addr_fmvpoll, processEventsUnfocused);
 	patchByte(addr_fmvpoll + 5, 0x80);
 	patchByte(addr_fmvpoll + 6, 0x80);

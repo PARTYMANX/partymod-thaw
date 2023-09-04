@@ -1247,7 +1247,7 @@ void loadSettings() {
 	padbinds.rightSpin = GetPrivateProfileInt("Gamepad", "SpinRight", CONTROLLER_BUTTON_RIGHTSHOULDER, configFile);
 	padbinds.nollie = GetPrivateProfileInt("Gamepad", "Nollie", CONTROLLER_BUTTON_LEFTTRIGGER, configFile);
 	padbinds.switchRevert = GetPrivateProfileInt("Gamepad", "Switch", CONTROLLER_BUTTON_RIGHTTRIGGER, configFile);
-	padbinds.switchRevert = GetPrivateProfileInt("Gamepad", "Focus", CONTROLLER_BUTTON_LEFTSTICK, configFile);
+	padbinds.focus = GetPrivateProfileInt("Gamepad", "Focus", CONTROLLER_BUTTON_RIGHTSTICK, configFile);
 
 	padbinds.right = GetPrivateProfileInt("Gamepad", "Right", CONTROLLER_BUTTON_DPAD_RIGHT, configFile);
 	padbinds.left = GetPrivateProfileInt("Gamepad", "Left", CONTROLLER_BUTTON_DPAD_LEFT, configFile);
