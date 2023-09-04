@@ -19,24 +19,64 @@
 
 void *initAddr = NULL;
 
+void *addr_shuffle1;
+void *addr_shuffle2;
+void *addr_origrand;
+
+uint8_t get_misc_offsets() {
+	uint8_t *shuffleAnchor = NULL;
+
+	uint8_t result = 1;
+	result &= patch_cache_pattern("53 e8 ?? ?? ?? ?? 8b 15 ?? ?? ?? ?? 52 8b f8 e8 ?? ?? ?? ?? 83 c4 08", &shuffleAnchor);
+
+	if (result) {
+		addr_origrand = *(uint32_t *)(shuffleAnchor + 2) + shuffleAnchor + 6;
+		addr_shuffle1 = shuffleAnchor + 1;
+		addr_shuffle2 = shuffleAnchor + 15;
+	} else {
+		printf("FAILED TO FIND MISC OFFSETS\n");
+	}
+
+	return result;
+}
+
 void findOffsets() {
 	printf("finding offsets...\n");
 
 	uint8_t result = 0;
-	result |= get_config_offsets();
-	result |= get_script_offsets();
-	result |= get_input_offsets();
+	result &= get_config_offsets();
+	result &= get_script_offsets();
+	result &= get_input_offsets();
+	result &= get_misc_offsets();
 
 	printf("done!\n");
+}
+
+void our_random(int out_of) {
+	// first, call the original random so that we consume a value.  
+	// juuust in case someone wants actual 100% identical behavior between partymod and the original game
+	void (__cdecl *their_random)(int) = addr_origrand;
+
+	their_random(out_of);
+
+	return rand() % out_of;
+}
+
+void patchPlaylistShuffle() {
+	patchCall(addr_shuffle1, our_random);
+	patchCall(addr_shuffle2, our_random);
 }
 
 void installPatches() {
 	patchWindow();
 	patchInput();
+	patchPlaylistShuffle();
 	printf("installing script patches\n");
 	patchScriptHook();
 	printf("done\n");
 }
+
+uint32_t rng_seed = 0;
 
 void initPatch() {
 	GetModuleFileName(NULL, &executableDirectory, filePathBufLen);
@@ -70,6 +110,10 @@ void initPatch() {
 	installPatches();
 
 	initScriptPatches();
+
+	// get some source of entropy for the music randomizer
+	rng_seed = time(NULL) & 0xffffffff;
+	srand(rng_seed);
 
 	printf("Patch Initialized\n");
 

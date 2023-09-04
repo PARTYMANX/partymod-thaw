@@ -71,24 +71,24 @@ uint8_t get_config_offsets() {
 	uint8_t *getScreenAngleFactorAnchor = NULL;
 	uint8_t *letterboxSizeAnchor = NULL;
 
-	uint8_t result = 0;
-	result |= patch_cache_pattern("89 44 24 68 a0 ?? ?? ?? ?? 53 33 db", &isFullscreenAnchor);
-	result |= patch_cache_pattern("8b 3d ?? ?? ?? ?? 33 c9 84 c0 0f 94 c1", &resolutionSettingAnchor);
-	result |= patch_cache_pattern("a8 01 74 07 c6 05 ?? ?? ?? ?? 01 a8 02", &settingsAnchor);
-	result |= patch_cache_pattern("a3 ?? ?? ?? ?? 8d 44 24 14 50 8b 44 24 20 8d 4c 24 1c", &clipdistAnchor);
-	result |= patch_cache_pattern("75 11 6a 01 8b 15 ?? ?? ?? ?? 52 ff 15", &hwndAnchor);
-	result |= patch_cache_pattern("0f 95 c0 84 c0 a2 ?? ?? ?? ?? 0f 85", &isFocusedAnchor);
-	result |= patch_cache_pattern("f3 0f 11 44 24 04 e8 ?? ?? ?? ?? d9 05", &aspectRatioAnchor);
-	result |= patch_cache_pattern("c7 44 24 2c 80 02 00 00", &addr_resX);
-	result |= patch_cache_pattern("c7 44 24 3c e0 01 00 00", &addr_resY);
-	result |= patch_cache_pattern("83 ec 40 8b 54 24 44 53 55 56 33 c0", &addr_createwindow);
-	result |= patch_cache_pattern("b9 ?? ?? ?? ?? 89 74 24 14 8b ff 8b c3", &addr_resbuffer);
-	result |= patch_cache_pattern("6a 04 51 52 53 53 53 50 ff 15", &addr_cornerwindow);
-	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 44 24 0c 83 c4 04 6a 00", &addr_loadconfig);
-	result |= patch_cache_pattern("e8 ?? ?? ?? ?? 6a 00 68 05 92 52 99 e8 ?? ?? ?? ?? d9 5c 24 24", &setAspectRatioAnchor);
-	result |= patch_cache_pattern("e8 ?? ?? ?? ?? d9 44 24 04 8b ce d9 f2 dd d8", &getScreenAngleFactorAnchor);	// three possibilities here, all safe
-	result |= patch_cache_pattern("8a 44 24 04 84 c0 a0 ?? ?? ?? ?? 74 23 84 c0", &addr_setletterbox);
-	result |= patch_cache_pattern("d1 f8 03 d0 89 15 ?? ?? ?? ?? f3 0f 11 05 ?? ?? ?? ?? c3", &letterboxSizeAnchor);
+	uint8_t result = 1;
+	result &= patch_cache_pattern("89 44 24 68 a0 ?? ?? ?? ?? 53 33 db", &isFullscreenAnchor);
+	result &= patch_cache_pattern("8b 3d ?? ?? ?? ?? 33 c9 84 c0 0f 94 c1", &resolutionSettingAnchor);
+	result &= patch_cache_pattern("a8 01 74 07 c6 05 ?? ?? ?? ?? 01 a8 02", &settingsAnchor);
+	result &= patch_cache_pattern("a3 ?? ?? ?? ?? 8d 44 24 14 50 8b 44 24 20 8d 4c 24 1c", &clipdistAnchor);
+	result &= patch_cache_pattern("75 11 6a 01 8b 15 ?? ?? ?? ?? 52 ff 15", &hwndAnchor);
+	result &= patch_cache_pattern("0f 95 c0 84 c0 a2 ?? ?? ?? ?? 0f 85", &isFocusedAnchor);
+	result &= patch_cache_pattern("f3 0f 11 44 24 04 e8 ?? ?? ?? ?? d9 05", &aspectRatioAnchor);
+	result &= patch_cache_pattern("c7 44 24 2c 80 02 00 00", &addr_resX);
+	result &= patch_cache_pattern("c7 44 24 3c e0 01 00 00", &addr_resY);
+	result &= patch_cache_pattern("83 ec 40 8b 54 24 44 53 55 56 33 c0", &addr_createwindow);
+	result &= patch_cache_pattern("b9 ?? ?? ?? ?? 89 74 24 14 8b ff 8b c3", &addr_resbuffer);
+	result &= patch_cache_pattern("6a 04 51 52 53 53 53 50 ff 15", &addr_cornerwindow);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? 8b 44 24 0c 83 c4 04 6a 00", &addr_loadconfig);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? 6a 00 68 05 92 52 99 e8 ?? ?? ?? ?? d9 5c 24 24", &setAspectRatioAnchor);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? d9 44 24 04 8b ce d9 f2 dd d8", &getScreenAngleFactorAnchor);	// three possibilities here, all safe
+	result &= patch_cache_pattern("8a 44 24 04 84 c0 a0 ?? ?? ?? ?? 74 23 84 c0", &addr_setletterbox);
+	result &= patch_cache_pattern("d1 f8 03 d0 89 15 ?? ?? ?? ?? f3 0f 11 05 ?? ?? ?? ?? c3", &letterboxSizeAnchor);
 
 	if (result) {
 		isFullscreen = *(uint32_t *)(isFullscreenAnchor + 5);
