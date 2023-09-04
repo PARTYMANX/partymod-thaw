@@ -204,10 +204,6 @@ uint8_t __cdecl isPs2Wrapper(uint8_t *idk, uint8_t *script) {
 		return 1;
 	}
 
-	if (scriptcrc == 0xF573F077 || scriptcrc == 0x2963D437 || scriptcrc == 0xE0C4DA1A) {
-		printf("ISPS2 0x%08x!!\n", scriptcrc);
-	}
-
 	return 0;
 }
 
@@ -219,10 +215,6 @@ uint8_t __cdecl isXenonWrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISXENON FROM 0x%08x!\n", scriptcrc);
 	}
 
-	if (scriptcrc == 0xF573F077 || scriptcrc == 0x2963D437 || scriptcrc == 0xE0C4DA1A) {
-		printf("ISXENON 0x%08x!!\n", scriptcrc);
-	}
-
 	return 0;
 }
 
@@ -232,10 +224,6 @@ uint8_t __cdecl isPCWrapper(uint8_t *idk, uint8_t *script) {
 	if (script) {
 		scriptcrc = *(uint32_t *)(script + 0xd0);
 		//printf("ISPC FROM 0x%08x!\n", scriptcrc);
-	}
-
-	if (scriptcrc == 0xF573F077 || scriptcrc == 0x2963D437 || scriptcrc == 0xE0C4DA1A) {
-		printf("ISPC 0x%08x!!\n", scriptcrc);
 	}
 
 	return 1;

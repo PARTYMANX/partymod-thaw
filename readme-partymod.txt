@@ -1,4 +1,4 @@
-PARTYMOD THAW 0.10
+PARTYMOD THAW 0.10.1
 
 This is a patch for THAW to improve its input handling as well as smooth out a few other parts of the PC port.
 The patch is designed to keep the game as original as possible, and leave its files unmodified.
@@ -9,6 +9,8 @@ Features and Fixes:
 - Replaced configuration files with new INI-based system (see partymod.ini)
 - Custom configurator program to handle new configuration files
 - Fixes an issue with the level select where it sometimes doesn't appear
+- Fixes hanging on quitting to menu (without delaying level loading!)
+- Adds entropy to music shuffling to make sure it doesn't repeat between sessions (while consuming the same number of random numbers)
 
 INSTALLATION:
 1. Make sure THAW (English) is installed and the 1.01 patch is applied, remove the widescreen mod if it is installed (delete dinput8.dll)

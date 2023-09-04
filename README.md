@@ -37,6 +37,4 @@ Additionally, set the SubSystem to "Windows (/SUBSYSTEM:WINDOWS)" in the partyco
 ### TODO
 Some stuff I would like to do at some point
 * Find a way to deal with Securom protected executables
-* Use pattern-based offsets to generically patch the game
-* Implement level load patches to avoid crashes
 * Figure out how to generically patch scripts
