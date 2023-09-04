@@ -1344,11 +1344,7 @@ void patchInput() {
 	// some config call relating to the dinput devices
 	patchNop(addr_deinit_dinput, 5);
 
-	printf("TEST!\n");
-
 	patchJmp(addr_procevents, processEventsUnfocused);
-
-	printf("TEST!\n");
 
 	// poll events during fmvs and when unfocused
 	// cmp shouldquit, 1: 80 3d 98 21 8b 00 01
