@@ -10,6 +10,8 @@ This patch was originally developed to provide input patches to be integrated in
 * Replaced configuration files with new INI-based system (see partymod.ini)
 * Custom configurator program to handle new configuration files
 * Fixes an issue with the level select where it sometimes doesn't appear
+* Fixes hanging on quitting to menu (without delaying level loading!)
+* Adds entropy to music shuffling to make sure it doesn't repeat between sessions (while consuming the same number of random numbers)
 
 ### Installation
 1. Download PARTYMOD from the releases tab

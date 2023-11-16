@@ -48,6 +48,8 @@ uint8_t patch_cache_pattern(char *pattern, uint32_t *addrOut) {
 #ifdef PATTERN_FINDER_PARANOIA
 		printf("shit!\n");
 #endif
+		printf("DID NOT FIND PATTERN \"%s\"!\n", pattern);
+
 		return 0;
 	}
 }

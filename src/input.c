@@ -220,7 +220,7 @@ uint8_t get_input_offsets() {
 		unk3 = *(uint32_t *)((uint8_t *)key_input + 23);
 		isFocused_again = *(uint32_t *)(quitfocusAnchor + 2);
 		shouldQuit = *(uint32_t *)(quitfocusAnchor + 12);
-		addr_procevents = *(uint32_t *)(quitfocusAnchor + 17) + quitfocusAnchor + 21;
+		addr_procevents = *(uint32_t *)(proceventsAnchor + 20) + proceventsAnchor + 24;
 		addr_recreatedevice = *(uint32_t *)(recreatedeviceAnchor + 7);
 	} else {
 		printf("FAILED TO FIND INPUT OFFSETS\n");
@@ -491,6 +491,11 @@ void pollController(device *dev, SDL_GameController *controller) {
 			if (getButton(controller, padbinds.switchRevert)) {
 				dev->controlData[20] |= 0x01 << 1;
 			} 
+
+			// this one's for park editor
+			if (getButton(controller, padbinds.rightSpin)) {
+				dev->controlData[20] |= 0x01 << 0;
+			}
 		} else {
 			if (getButton(controller, padbinds.nollie)) {
 				dev->controlData[20] |= 0x01 << 1;
@@ -550,6 +555,10 @@ void pollKeyboard(device *dev) {
 		if (keyboardState[keybinds.switchRevert]) {
 			dev->controlData[20] |= 0x01 << 1;
 		} 
+
+		if (keyboardState[keybinds.rightSpin]) {
+			dev->controlData[20] |= 0x01 << 0;
+		}
 	} else {
 		if (keyboardState[keybinds.nollie]) {
 			dev->controlData[20] |= 0x01 << 1;
@@ -859,12 +868,20 @@ void processEvent(SDL_Event *e) {
 	}
 }
 
-void processEventsUnfocused() {
-	// called when window is unfocused so that window events are still processed
-
+void processEvents() {
 	SDL_Event e;
 	while(SDL_PollEvent(&e)) {
 		processEvent(&e);
+	}
+}
+
+void processEventsUnfocused() {
+	// called when window is unfocused so that window events are still processed
+
+	processEvents();
+
+	if (!*isFocused_again) {
+		SDL_Delay(10);
 	}
 }
 
@@ -1344,7 +1361,7 @@ void patchInput() {
 	// some config call relating to the dinput devices
 	patchNop(addr_deinit_dinput, 5);
 
-	patchJmp(addr_procevents, processEventsUnfocused);
+	patchJmp(addr_procevents, processEvents);
 
 	// poll events during fmvs and when unfocused
 	// cmp shouldquit, 1: 80 3d 98 21 8b 00 01

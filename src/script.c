@@ -163,6 +163,7 @@ void *addr_finishloads = NULL;
 void *addr_isLoadingLevel = NULL;
 void *addr_setscreenelementprops = NULL;
 void *addr_playmovie = NULL;
+uint32_t (__cdecl *addr_getPlatform)(uint8_t *, uint8_t *) = NULL;
 
 // fixes crashes when going to menu
 uint8_t __cdecl finishloadsWrapper(uint8_t *idk, uint8_t *script) {
@@ -199,6 +200,11 @@ uint8_t __cdecl isPs2Wrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISPS2 FROM 0x%08x!\n", scriptcrc);
 	}
 
+	// CAS
+	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96/* || scriptcrc == 0x9b67c733*/) {
+		return 1;
+	}
+
 	if (scriptcrc == 0x0fb58a23 || scriptcrc == 0xa6c34163) {
 		// if BertStanceState or switchRegular, return true;
 		return 1;
@@ -226,7 +232,23 @@ uint8_t __cdecl isPCWrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISPC FROM 0x%08x!\n", scriptcrc);
 	}
 
+	// CAS
+	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96/* || scriptcrc == 0x9b67c733*/) {
+		return 0;
+	}
+
 	return 1;
+}
+
+uint8_t __cdecl getPlatformWrapper(uint8_t *params, uint8_t *script) {
+	uint32_t scriptcrc = 0;
+
+	if (script) {
+		scriptcrc = *(uint32_t *)(script + 0xd0);
+		printf("GETPLATFORM FROM 0x%08x!\n", scriptcrc);
+	}
+
+	return addr_getPlatform(params, script);
 }
 
 uint8_t __cdecl isCEWrapper(uint8_t *idk, uint8_t *script) {
@@ -261,6 +283,21 @@ struct scrobjArray {
 	uint32_t size;
 	void *data;
 };
+
+struct scrobjArray *scr_get_array(struct scrStruct *str, uint32_t checksum) {
+	struct scrobjArray *result = NULL;
+
+	struct component *node = str->head;
+	while (node && node->name != checksum) {
+		node = node->next;
+	}
+	if (node) {
+		// get array
+		result = node->data;
+	}
+
+	return result;
+}
 
 uint8_t __cdecl SetScreenElementPropsWrapper(uint8_t *params, uint8_t *script) {
 	uint8_t (__cdecl *their_func)(uint8_t *, uint8_t *) = addr_setscreenelementprops;
@@ -297,10 +334,149 @@ uint8_t __cdecl SetScreenElementPropsWrapper(uint8_t *params, uint8_t *script) {
 	return their_func(params, script);
 }
 
+#define BUTTON_A 0x174841bc
+#define BUTTON_B 0x8e411006
+#define BUTTON_X 0x7323e97c
+#define BUTTON_Y 0x0424d9ea
+#define BUTTON_CIRCLE 0x2b489a86
+#define BUTTON_TRIANGLE 0x20689278
+#define BUTTON_SQUARE 0x321c9756
+#define BUTTON_L1 0xcd254066
+#define BUTTON_R1 0xbb890e41
+#define BUTTON_L2 0x542c11dc
+#define BUTTON_R2 0x22805ffb
+#define BUTTON_L3 0xa8e3e604
+#define BUTTON_R3 0x54d6f6a5
+#define BUTTON_Z 0x9d2d8850
+#define BUTTON_ZL 0x43e94857
+#define BUTTON_ZR 0xebfe2fc7
+#define BUTTON_RT_HALF 0x63d80c45
+#define BUTTON_LT_HALF 0x9fed1ce4
+#define BUTTON_LT_FULL 0x84c88965
+#define BUTTON_RT_FULL 0x78fd99c4
+#define BUTTON_WHITE 0xbd30325b
+#define BUTTON_BLACK 0x767a45d7
+#define BUTTON_SELECT 0xb40d153f
+#define BUTTON_BACK 0x92313ec8
+#define BUTTON_NULL 0xda3403b0
+
+#define MAP_GAMECUBE 0x99304478
+#define MAP_PS2 0x988a3508
+#define MAP_XBOX 0x87d839b8
+#define MAP_XENON 0xf6a179c0
+
+struct buttonmapping {
+	uint32_t button;
+	uint32_t mapping;
+};
+
 // event map:
 // get frontend class from SetButtonEventMappings + 3
 //      *(uint *)(param_1 + 0xe4 + iVar4 * 8) = uVar7; = button index
 //      *(int *)(param_1 + 0xe8 + iVar4 * 8) = iVar3; = event type
+void __fastcall setButtonMappingsWrapper(void *frontend, void *pad, struct scrStruct *params) {
+	//printf("SETTING BUTTONS 0x%08x\n", frontend);
+
+	int map = MAP_PS2;
+
+	struct scrobjArray *button_mappings = scr_get_array(params, map);
+	if (!button_mappings) {
+		//printf("NO BUTTON MAPPINGS\n");
+		return;
+	}
+
+	//printf("GOT ARRAY 0x%08x\n", params);
+	struct buttonmapping *mappingarray = ((struct buttonmapping *)(((uint8_t *)frontend) + 0xe4));
+
+	for (int i = 0; i < button_mappings->size; i++) {
+		struct scrobjArray *button_map = ((struct scrobjArray **)button_mappings->data)[i];
+		//printf("GOT STUFF 0x%08x\n", button_map);
+
+		uint32_t button = ((uint32_t *)button_map->data)[0];
+		uint32_t mapping = ((uint32_t *)button_map->data)[1];
+
+		//printf("BUTTON: 0x%08x, MAPPING: 0x%08x\n", button, mapping);
+
+		int button_idx = -1;
+
+		switch(button) {
+		case BUTTON_A:
+			button_idx = 6;
+			break;
+		case BUTTON_TRIANGLE:
+		case BUTTON_Y:
+			button_idx = 4;
+			break;
+		case BUTTON_CIRCLE:
+			button_idx = 5;
+			break;
+		case BUTTON_SQUARE:
+			button_idx = 7;
+			break;
+		case BUTTON_X:
+			if (map == MAP_PS2) {
+				button_idx = 6;
+			} else if (map == MAP_GAMECUBE) {
+				button_idx = 5;
+			} else {	// something xbox
+				button_idx = 7;
+			}
+			break;
+		case BUTTON_B:
+			if (map == MAP_GAMECUBE) {
+				button_idx = 7;
+			} else {	// something xbox
+				button_idx = 5;
+			}
+			break;
+		case BUTTON_L1:
+		case BUTTON_LT_HALF:
+			button_idx = 2;
+			break;
+		case BUTTON_R1:
+		case BUTTON_RT_HALF:
+			button_idx = 3;
+			break;
+		case BUTTON_L2:
+		case BUTTON_LT_FULL:
+			button_idx = 0;
+			break;
+		case BUTTON_R2:
+		case BUTTON_RT_FULL:
+			button_idx = 1;
+			break;
+		case BUTTON_SELECT:
+		case BUTTON_BACK:
+			button_idx = 8;
+			break;
+		case BUTTON_ZL:
+		case BUTTON_L3:
+			button_idx = 9;
+			break;
+		case BUTTON_ZR:
+		case BUTTON_R3:
+			button_idx = 10;
+			break;
+		case BUTTON_BLACK:
+			button_idx = 16;
+			break;
+		case BUTTON_WHITE:
+			button_idx = 17;
+			break;
+		case BUTTON_Z:
+			button_idx = 18;
+			break;
+		default:
+			printf("UNKNOWN BUTTON: 0x%08x\n", button);
+			break;
+		}
+
+		mappingarray[i].button = button_idx;
+		mappingarray[i].mapping = mapping;
+	}
+
+	//printf("DONE!!\n");
+}
 
 
 void registerPS2ControlPatch() {
@@ -325,9 +501,15 @@ uint8_t wrap_cfunc(char *name, void *wrapper, void **addr_out) {
 	struct cfunclistentry *cfunclist = addr_cfunclist;
 
 	for (int i = 0; i < count; i++) {
-		if (strcmp(cfunclist[i].name, name) == 0) {
-			*addr_out = cfunclist[i].func;
-			patchDWord(&(cfunclist[i].func), wrapper);
+		if (name && strcmp(cfunclist[i].name, name) == 0) {
+			if (addr_out) {
+				*addr_out = cfunclist[i].func;
+			}
+
+			if (wrapper) {
+				patchDWord(&(cfunclist[i].func), wrapper);
+			}
+
 			return 1;
 		}
 	}
@@ -337,6 +519,38 @@ uint8_t wrap_cfunc(char *name, void *wrapper, void **addr_out) {
 	return 0;
 }
 
+uint8_t install_menu_control_patches() {
+	uint8_t result = 1;
+
+	uint8_t *addr_buttonmappings;
+	uint8_t *addr_metabuttonmap;
+
+	printf("DOING BUTTON PATCH\n");
+
+	result &= wrap_cfunc("SetButtonEventMappings", NULL, &addr_buttonmappings);
+	result &= patch_cache_pattern("3b 77 04 73 ?? 6a 02 56 ?? cf", &addr_metabuttonmap);
+
+	printf("Test 0x%08x\n", addr_metabuttonmap);
+	//result &= wrap_cfunc("GetPlatform", getPlatformWrapper, addr_getPlatform);
+
+	patchByte(addr_metabuttonmap + 6, 0);
+	//addr_frontend_struct = *(uint32_t *)((uint32_t) addr_buttonmappings + 3);
+	
+	//addr_setbuttonmappings = *(uint32_t *)((uint32_t) addr_buttonmappings + 16);
+	//patchDWord(addr_buttonmappings + 16, setButtonMappingsWrapper);
+
+	if (result) {
+		printf("patching set buttons 0x%08x\n", addr_buttonmappings + 15);
+		//Sleep(1000);
+		patchCall(addr_buttonmappings + 15, setButtonMappingsWrapper);
+	} else {
+		printf("FAILED TO FIND MENU CFUNC OFFSETS!\n");
+		//Sleep(1000);
+	}
+
+	return result;
+}
+
 uint8_t install_cfunc_patches() {
 	uint8_t result = 1;
 
@@ -344,9 +558,13 @@ uint8_t install_cfunc_patches() {
 	addr_isLoadingLevel = *(uint32_t *)((uint32_t) addr_finishloads + 24);
 	//result &= wrap_cfunc("SetScreenElementProps", SetScreenElementPropsWrapper, &addr_setscreenelementprops);	// breaks shops
 
+	result &= install_menu_control_patches();
+
 	if (!result) {
 		printf("FAILED TO FIND CFUNC OFFSETS!\n");
 	}
+
+	return result;
 }
 
 uint8_t get_script_offsets() {

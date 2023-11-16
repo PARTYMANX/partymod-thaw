@@ -43,14 +43,24 @@ uint8_t get_misc_offsets() {
 void findOffsets() {
 	printf("finding offsets...\n");
 
-	uint8_t result = 0;
+	uint8_t result = 1;
 	result &= get_config_offsets();
 	result &= get_script_offsets();
 	result &= get_input_offsets();
 	result &= get_misc_offsets();
+	result;
+
+	if (!result) {
+		printf("PATCHES FAILED!!! %d\n", result);
+		//SDL_Delay(3000);
+	}
 
 	printf("done!\n");
 }
+
+// CAMERA NOTES:
+// 858ec8: camera matrix
+// written to by 00536d7c
 
 void our_random(int out_of) {
 	// first, call the original random so that we consume a value.  
