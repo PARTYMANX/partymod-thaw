@@ -22,12 +22,14 @@ void *initAddr = NULL;
 void *addr_shuffle1;
 void *addr_shuffle2;
 void *addr_origrand;
+uint32_t addr_camera_lookat;
 
 uint8_t get_misc_offsets() {
 	uint8_t *shuffleAnchor = NULL;
 
 	uint8_t result = 1;
 	result &= patch_cache_pattern("53 e8 ?? ?? ?? ?? 8b 15 ?? ?? ?? ?? 52 8b f8 e8 ?? ?? ?? ?? 83 c4 08", &shuffleAnchor);
+	result &= patch_cache_pattern("f3 0f 5c cc f3 0f 5c d5 f3 0f 5c de 68", &addr_camera_lookat);
 
 	if (result) {
 		addr_origrand = *(uint32_t *)(shuffleAnchor + 2) + shuffleAnchor + 6;
@@ -58,9 +60,79 @@ void findOffsets() {
 	printf("done!\n");
 }
 
-// CAMERA NOTES:
-// 858ec8: camera matrix
-// written to by 00536d7c
+typedef struct {
+	float x;
+	float y;
+	float z;
+} vec3f;
+
+vec3f vec3f_normalize(vec3f v) {
+	float len = fabsf(sqrtf((v.x * v.x) + (v.y * v.y) + (v.z * v.z)));
+
+	if (len == 0)
+		return (vec3f) {0.0, 0.0, 0.0};
+
+	len = 1.0f / len;
+
+	v.x *= len;
+	v.y *= len;
+	v.z *= len;
+
+	return v;
+}
+
+vec3f vec3f_cross(vec3f a, vec3f b) {
+	vec3f result;
+
+	result.x = (a.y * b.z) - (a.z * b.y);
+	result.y = (a.z * b.x) - (a.x * b.z);
+	result.z = (a.x * b.y) - (a.y * b.x);
+
+	return result;
+}
+
+float vec3f_dot(vec3f a, vec3f b) {
+	return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+}
+
+void _stdcall fixedcamera(float *mat_out, vec3f *eye, vec3f *forward, vec3f *up) {
+	// lookat function that expects a preprepared forward vector
+	// the original function was taking the forward vector, adding the camera position, and going back again which ruined the camera's angle's precision
+	// this makes the game move much more smoothly in far edges of the world, like oil rig
+
+	vec3f f = vec3f_normalize(*forward);	//f - front
+	vec3f r = vec3f_normalize(vec3f_cross(*up, f));	//r - right
+	vec3f u = vec3f_normalize(vec3f_cross(f, r));	//u - up
+
+	mat_out[0] = r.x;
+	mat_out[4] = r.y;
+	mat_out[8] = r.z;
+	mat_out[12] = -vec3f_dot(r, *eye);
+	mat_out[1] = u.x;
+	mat_out[5] = u.y;
+	mat_out[9] = u.z;
+	mat_out[13] = -vec3f_dot(u, *eye);
+	mat_out[2] = f.x;
+	mat_out[6] = f.y;
+	mat_out[10] = f.z;
+	mat_out[14] = -vec3f_dot(f, *eye);
+	mat_out[3] = 0.0f;
+	mat_out[7] = 0.0f;
+	mat_out[11] = 0.0f;
+	mat_out[15] = 1.0f;
+}
+
+void patchCamera() {
+	// remove camera math
+	patchNop(addr_camera_lookat, 12);
+
+	// pass in plain forward vector
+	patchByte(addr_camera_lookat + 49 + 3, 0x64);
+	patchByte(addr_camera_lookat + 55 + 3, 0x6c);
+	patchByte(addr_camera_lookat + 61 + 3, 0x74);
+
+	patchCall(addr_camera_lookat + 67, fixedcamera);
+}
 
 void our_random(int out_of) {
 	// first, call the original random so that we consume a value.  
@@ -81,6 +153,7 @@ void installPatches() {
 	patchWindow();
 	patchInput();
 	patchPlaylistShuffle();
+	patchCamera();
 	printf("installing script patches\n");
 	patchScriptHook();
 	printf("done\n");
