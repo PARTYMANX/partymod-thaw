@@ -1,4 +1,4 @@
-PARTYMOD THAW 0.10.1
+PARTYMOD THAW 0.11.0
 
 This is a patch for THAW to improve its input handling as well as smooth out a few other parts of the PC port.
 The patch is designed to keep the game as original as possible, and leave its files unmodified.
