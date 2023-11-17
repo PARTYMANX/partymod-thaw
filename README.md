@@ -12,6 +12,7 @@ This patch was originally developed to provide input patches to be integrated in
 * Fixes an issue with the level select where it sometimes doesn't appear
 * Fixes hanging on quitting to menu (without delaying level loading!)
 * Adds entropy to music shuffling to make sure it doesn't repeat between sessions (while consuming the same number of random numbers)
+* Fixes camera precision loss at great distances (the camera shake noticeable at the far ends of the world, like Oil Rig)
 
 ### Installation
 1. Download PARTYMOD from the releases tab

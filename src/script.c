@@ -20,6 +20,9 @@ INCBIN(levelselect_scripts, "patches/levelselect_scripts.bps");
 
 char scriptCacheFile[1024];
 
+uint8_t usingPS2Controls = 0;
+uint8_t menuControls = 0;
+
 map_t *cachedScriptMap;	// persistent cache, written to disk when modified
 map_t *patchMap;
 map_t *scriptMap;	// runtime cache, potentially modified scripts go in here.  think of it as a cache of buffers rather than scripts themselves
@@ -164,6 +167,7 @@ void *addr_isLoadingLevel = NULL;
 void *addr_setscreenelementprops = NULL;
 void *addr_playmovie = NULL;
 uint32_t (__cdecl *addr_getPlatform)(uint8_t *, uint8_t *) = NULL;
+uint8_t *addr_metabuttonmap = NULL;
 
 // fixes crashes when going to menu
 uint8_t __cdecl finishloadsWrapper(uint8_t *idk, uint8_t *script) {
@@ -200,12 +204,16 @@ uint8_t __cdecl isPs2Wrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISPS2 FROM 0x%08x!\n", scriptcrc);
 	}
 
-	// CAS
-	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96/* || scriptcrc == 0x9b67c733*/) {
-		return 1;
+	// CAS menu
+	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96) {
+		if (menuControls == 2) {
+			return 1;
+		} else {
+			return 0;
+		}
 	}
 
-	if (scriptcrc == 0x0fb58a23 || scriptcrc == 0xa6c34163) {
+	if (usingPS2Controls && scriptcrc == 0x0fb58a23 || scriptcrc == 0xa6c34163) {
 		// if BertStanceState or switchRegular, return true;
 		return 1;
 	}
@@ -221,6 +229,15 @@ uint8_t __cdecl isXenonWrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISXENON FROM 0x%08x!\n", scriptcrc);
 	}
 
+	// CAS menu
+	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96) {
+		if (menuControls == 1) {
+			return 1;
+		} else {
+			return 0;
+		}
+	}
+
 	return 0;
 }
 
@@ -232,9 +249,13 @@ uint8_t __cdecl isPCWrapper(uint8_t *idk, uint8_t *script) {
 		//printf("ISPC FROM 0x%08x!\n", scriptcrc);
 	}
 
-	// CAS
-	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96/* || scriptcrc == 0x9b67c733*/) {
-		return 0;
+	// CAS menu
+	if (scriptcrc == 0x2acdf8f2 || scriptcrc == 0x7410bd96) {
+		if (menuControls == 0) {
+			return 1;
+		} else {
+			return 0;
+		}
 	}
 
 	return 1;
@@ -377,7 +398,17 @@ struct buttonmapping {
 void __fastcall setButtonMappingsWrapper(void *frontend, void *pad, struct scrStruct *params) {
 	//printf("SETTING BUTTONS 0x%08x\n", frontend);
 
-	int map = MAP_PS2;
+	int map;
+	switch(menuControls) {
+		case 1:
+			map = MAP_XENON;
+			break;
+		case 2:
+			map = MAP_PS2;
+			break;
+		default:
+			map = MAP_XBOX;
+	}
 
 	struct scrobjArray *button_mappings = scr_get_array(params, map);
 	if (!button_mappings) {
@@ -480,13 +511,29 @@ void __fastcall setButtonMappingsWrapper(void *frontend, void *pad, struct scrSt
 
 
 void registerPS2ControlPatch() {
-	// NOTES ON CHANGING TALK BUTTON:
+	usingPS2Controls = 1;
+}
 
-	//registerPatch("scripts\\game\\skater\\groundtricks.qb.Wpc", ggroundtricksSize, ggroundtricksData);
-	//registerPatch("scripts\\engine\\menu\\menubuttonremap.qb.Wpc");
-	patchJmp(addr_isps2, isPs2Wrapper);
-	patchJmp(addr_isxenon, isXenonWrapper);
-	patchJmp(addr_ispc, isPCWrapper);
+void setMenuControls(uint8_t value) {
+	if (value <= 2) {
+		menuControls = value;
+
+		switch (menuControls) {
+		case 0:
+			printf("Using Xbox/PC Menu Controls\n");
+			break;
+		case 1:
+			printf("Using 360/Xenon Menu Controls\n");
+			patchByte(addr_metabuttonmap + 6, 3);
+			break;
+		case 2:
+			printf("Using PS2 Menu Controls\n");
+			patchByte(addr_metabuttonmap + 6, 0);
+			break;
+		}
+	} else {
+		printf("Invalid menu controls setting: %d!\n", value);
+	}
 }
 
 struct cfunclistentry {
@@ -523,29 +570,13 @@ uint8_t install_menu_control_patches() {
 	uint8_t result = 1;
 
 	uint8_t *addr_buttonmappings;
-	uint8_t *addr_metabuttonmap;
-
-	printf("DOING BUTTON PATCH\n");
+	
 
 	result &= wrap_cfunc("SetButtonEventMappings", NULL, &addr_buttonmappings);
 	result &= patch_cache_pattern("3b 77 04 73 ?? 6a 02 56 ?? cf", &addr_metabuttonmap);
 
-	printf("Test 0x%08x\n", addr_metabuttonmap);
-	//result &= wrap_cfunc("GetPlatform", getPlatformWrapper, addr_getPlatform);
-
-	patchByte(addr_metabuttonmap + 6, 0);
-	//addr_frontend_struct = *(uint32_t *)((uint32_t) addr_buttonmappings + 3);
-	
-	//addr_setbuttonmappings = *(uint32_t *)((uint32_t) addr_buttonmappings + 16);
-	//patchDWord(addr_buttonmappings + 16, setButtonMappingsWrapper);
-
 	if (result) {
-		printf("patching set buttons 0x%08x\n", addr_buttonmappings + 15);
-		//Sleep(1000);
 		patchCall(addr_buttonmappings + 15, setButtonMappingsWrapper);
-	} else {
-		printf("FAILED TO FIND MENU CFUNC OFFSETS!\n");
-		//Sleep(1000);
 	}
 
 	return result;
@@ -557,6 +588,10 @@ uint8_t install_cfunc_patches() {
 	result &= wrap_cfunc("FinishPendingZoneLoads", finishloadsWrapper, &addr_finishloads);
 	addr_isLoadingLevel = *(uint32_t *)((uint32_t) addr_finishloads + 24);
 	//result &= wrap_cfunc("SetScreenElementProps", SetScreenElementPropsWrapper, &addr_setscreenelementprops);	// breaks shops
+
+	patchJmp(addr_isps2, isPs2Wrapper);
+	patchJmp(addr_isxenon, isXenonWrapper);
+	patchJmp(addr_ispc, isPCWrapper);
 
 	result &= install_menu_control_patches();
 

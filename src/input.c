@@ -1025,6 +1025,8 @@ void __stdcall initManager() {
 		registerPS2ControlPatch();
 		patchPs2Buttons();
 	}
+
+	setMenuControls(inputsettings.uicontrols);
 }
 
 // wrapper over the rolling friction calculation, provides easy access to the skater physics component

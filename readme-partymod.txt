@@ -11,6 +11,7 @@ Features and Fixes:
 - Fixes an issue with the level select where it sometimes doesn't appear
 - Fixes hanging on quitting to menu (without delaying level loading!)
 - Adds entropy to music shuffling to make sure it doesn't repeat between sessions (while consuming the same number of random numbers)
+- Fixes camera precision loss at great distances (the camera shake noticeable at the far ends of the world, like Oil Rig)
 
 INSTALLATION:
 1. Make sure THAW (English) is installed and the 1.01 patch is applied, remove the widescreen mod if it is installed (delete dinput8.dll)

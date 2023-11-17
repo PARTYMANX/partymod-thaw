@@ -14,8 +14,8 @@
 #include <script.h>
 
 #define VERSION_NUMBER_MAJOR 0
-#define VERSION_NUMBER_MINOR 10
-#define VERSION_NUMBER_FIX 1
+#define VERSION_NUMBER_MINOR 11
+#define VERSION_NUMBER_FIX 0
 
 void *initAddr = NULL;
 
@@ -100,10 +100,11 @@ void _stdcall fixedcamera(float *mat_out, vec3f *eye, vec3f *forward, vec3f *up)
 	// the original function was taking the forward vector, adding the camera position, and going back again which ruined the camera's angle's precision
 	// this makes the game move much more smoothly in far edges of the world, like oil rig
 
-	vec3f f = vec3f_normalize(*forward);	//f - front
+	vec3f f = *forward;	//f - front
 	vec3f r = vec3f_normalize(vec3f_cross(*up, f));	//r - right
-	vec3f u = vec3f_normalize(vec3f_cross(f, r));	//u - up
+	vec3f u = vec3f_cross(f, r);	//u - up
 
+	// output is in column-major order
 	mat_out[0] = r.x;
 	mat_out[4] = r.y;
 	mat_out[8] = r.z;

@@ -301,6 +301,7 @@ void loadInputSettings(struct inputsettings *settingsOut) {
 
 	if (settingsOut) {
 		settingsOut->isPs2Controls = getIniBool("Miscellaneous", "UsePS2Controls", 1, configFile);
+		settingsOut->uicontrols = (uint8_t)GetPrivateProfileInt("Miscellaneous", "UIControls", 1, configFile);
 	}
 }
 

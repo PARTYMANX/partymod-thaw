@@ -5,5 +5,6 @@ uint8_t get_script_offsets();
 void patchScriptHook();
 void initScriptPatches();
 void registerPS2ControlPatch();
+void setMenuControls(uint8_t value);
 
 #endif

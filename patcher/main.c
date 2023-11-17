@@ -15,6 +15,35 @@ int applyPatch(uint8_t *patch, size_t patchLen, uint8_t *input, size_t inputLen,
 uint8_t *patchData = NULL;
 uint32_t patchSize = 0;
 
+size_t validinput_sz = 6;
+uint32_t validinput_data[] = {
+	0xa8290acf,
+	0xae1cc8f3,
+	0xac38c39a,
+	0x67741c1c,
+	0xbc1b2c8b,
+	0xaee86f12,
+};
+
+size_t validoutput_sz = 5;
+uint32_t validoutput_data[] = {
+	0x6a8f87e3,
+	0x8df76a2c,
+	0x004b12fe,
+	0xb467ee5f,
+	0xb2ab5e67,
+};
+
+uint8_t contains_crc(uint32_t *list, size_t sz, uint32_t val) {
+	for (int i = 0; i < sz; i++) {
+		if (list[i] == val) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv) {
 	// open thaw.exe and dump contents
 	FILE *f = fopen("THAW.exe", "rb");
@@ -44,7 +73,7 @@ int main(int argc, char **argv) {
 
 			// check input crc (not using the one in the bps due to multiple valid executables)
 			uint32_t inputcrc = crc32(buffer, filesize);
-			if (inputcrc != 0xa8290acf && inputcrc != 0xae1cc8f3) {
+			if (!contains_crc(validinput_data, validinput_sz, inputcrc)) {
 				printf("INPUT CRC DOES NOT MATCH EXPECTED: %08x\n", inputcrc);
 				printf("Make sure THAW Patch 1.01 is installed\n");
 				//printf("Patch Failed!\n");
@@ -62,7 +91,7 @@ int main(int argc, char **argv) {
 
 			// check crc (again, not using the one in the bps due to multiple valid executables)
 			uint32_t outputcrc = crc32(patchedBuffer, patchedLen);
-			if (outputcrc != 0x6a8f87e3 && outputcrc != 0x8df76a2c) {
+			if (!contains_crc(validoutput_data, validoutput_sz, outputcrc)) {
 				printf("OUTPUT CRC DOES NOT MATCH EXPECTED: %08x\n", outputcrc);
 				printf("Make sure THAW Patch 1.01 is installed\n");
 				printf("Output may not work!");

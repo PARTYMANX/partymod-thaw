@@ -102,6 +102,7 @@ struct controllerbinds {
 
 struct inputsettings {
 	uint8_t isPs2Controls;
+	uint8_t uicontrols;
 };
 
 void loadInputSettings(struct inputsettings *settingsOut);
