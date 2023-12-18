@@ -123,6 +123,23 @@ void _stdcall fixedcamera(float *mat_out, vec3f *eye, vec3f *forward, vec3f *up)
 	mat_out[15] = 1.0f;
 }
 
+#include <d3d9.h>
+
+void _stdcall depthbiaswrapper(IDirect3DDevice9 *device, uint32_t state, float value) {
+	HRESULT (_fastcall *setrenderstate)(IDirect3DDevice9 *device, void *pad, IDirect3DDevice9 *alsodevice, uint32_t state, float value) = (void *)device->lpVtbl->SetRenderState;
+	float *origdepthbias = 0x00859168;
+
+	value = value;
+
+	printf("DEPTH BIAS: %f (0x%08x), %f\n", *origdepthbias, *origdepthbias, value);
+
+	D3DRS_FOGCOLOR;
+	//D3DRS_FOG
+
+	//IDirect3DDevice9_SetRenderState(device, state, value);
+	setrenderstate(device, NULL, device, state, value);
+}
+
 void patchCamera() {
 	// remove camera math
 	patchNop(addr_camera_lookat, 12);
@@ -133,6 +150,20 @@ void patchCamera() {
 	patchByte(addr_camera_lookat + 61 + 3, 0x74);
 
 	patchCall(addr_camera_lookat + 67, fixedcamera);
+	
+	// depth bias tests
+	//patchNop(0x0053808d, 6);
+	//patchCall(0x0053808d, depthbiaswrapper);
+
+	// fog tests
+	//patchByte(0x00527d88 + 1, 1);
+	//patchNop(0x00527d8a, 5);
+
+	//patchNop(0x0052812c, 5);
+	//patchNop(0x0053225b, 5);
+	//patchNop(0x0059b5e0, 5);
+
+	//patchNop(0x00509244, 5);
 }
 
 void our_random(int out_of) {
