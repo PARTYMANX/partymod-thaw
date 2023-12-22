@@ -984,11 +984,11 @@ void __cdecl processController(device *dev) {
 	//printf("UNKNOWN VALUES: 0x0074fb42: %d, 0x00751dc0: %d, 0x0074fb43: %d\n", *unk1, *unk2, *unk3);
 }
 
-void __cdecl set_actuators(int port, uint16_t left, uint16_t right) {
+void __cdecl set_actuators(int port, uint16_t high, uint16_t low) {
 	//printf("SETTING ACTUATORS: %d %d %d\n", port, left, right);
 	for (int i = 0; i < controllerCount; i++) {
 		if (SDL_GameControllerGetAttached(controllerList[i]) && SDL_GameControllerGetPlayerIndex(controllerList[i]) == port) {
-			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), left, right, 0);
+			SDL_JoystickRumble(SDL_GameControllerGetJoystick(controllerList[i]), low, high, 0);
 		}
 	}
 }
