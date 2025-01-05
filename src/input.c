@@ -191,6 +191,9 @@ uint8_t *addr_deinit_dinput = NULL; // e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8 ?? ?? ??
 uint8_t *addr_fmvpoll = NULL;
 uint8_t *addr_unfocuspoll = NULL;
 uint8_t *addr_fmvunfocuspoll = NULL;
+uint8_t *addr_fmvpollthrottle = NULL;
+uint8_t *addr_fmvdelay;
+uint8_t *addr_tauntslotone = NULL;
 uint8_t *addr_procevents = NULL;
 uint8_t *addr_recreatedevice = NULL;
 
@@ -210,6 +213,9 @@ uint8_t get_input_offsets() {
 	result &= patch_cache_pattern("53 53 51 8d 54 24 48 52 ff 15", &addr_fmvpoll);
 	result &= patch_cache_pattern("6a 00 6a 00 50 8d 4c 24 4c 51 ff 15", &addr_unfocuspoll);
 	result &= patch_cache_pattern("8b 0d ?? ?? ?? ?? 53 53 51 8d 54 24 48", &addr_fmvunfocuspoll);
+	result &= patch_cache_pattern("b9 05 00 00 00 f7 f9 85 d2", &addr_fmvpollthrottle);
+	result &= patch_cache_pattern("53 56 57 68 d0 07 00 00", &addr_fmvdelay);
+	result &= patch_cache_pattern("8a 44 24 04 3c 1b 75", &addr_tauntslotone);
 	//result &= patch_cache_pattern("83 ec 1c 56 8b 35 ?? ?? ?? ?? 6a 01", &addr_procevents);
 	result &= patch_cache_pattern("c6 05 ?? ?? ?? ?? 00 c6 05 ?? ?? ?? ?? 00 e8 ?? ?? ?? ?? e8 ?? ?? ?? ?? e8", &proceventsAnchor);
 	result &= patch_cache_pattern("6a 01 6a 00 6a 00 a2 ?? ?? ?? ?? ff 15 ?? ?? ?? ?? 33 c0 c2 10 00", &recreatedeviceAnchor);
@@ -649,13 +655,22 @@ uint8_t isKeyboardTyping() {
 
 void do_key_input(SDL_KeyCode key) {
 	if (!*addr_isKeyboardOnScreen) {
+		if (key == SDLK_RETURN) {
+			key_input(0x19, 0);
+		} else if (key == SDLK_F1) {
+			key_input(0x1f, 0);
+		} else if (key == SDLK_F2) {
+			key_input(0x1c, 0);
+		} else if (key == SDLK_F3) {
+			key_input(0x1d, 0);
+		} else if (key == SDLK_F4) {
+			key_input(0x1e, 0);
+		}
+
 		return;
 	}
 
 	int32_t key_out = 0;
-	uint8_t modstate = SDL_GetModState();
-	uint8_t shift = SDL_GetModState() & KMOD_SHIFT;
-	uint8_t caps = SDL_GetModState() & KMOD_CAPS;
 
 	if (key == SDLK_RETURN) {
 		key_out = 0x0d;	// CR
@@ -663,140 +678,23 @@ void do_key_input(SDL_KeyCode key) {
 		key_out = 0x08;	// BS
 	} else if (key == SDLK_ESCAPE) {
 		key_out = 0x1b;	// ESC
-	} else if (key == SDLK_SPACE) {
-		key_out = ' ';
-	} else if (key >= SDLK_0 && key <= SDLK_9 && !(modstate & KMOD_SHIFT)) {
-		key_out = key;
-	} else if (key >= SDLK_a && key <= SDLK_z) {
-		key_out = key;
-		if (modstate & (KMOD_SHIFT | KMOD_CAPS)) {
-			key_out -= 0x20;
-		}
-	} else if (key == SDLK_PERIOD) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '>';
-		} else {
-			key_out = '.';
-		}
-	} else if (key == SDLK_COMMA) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '<';
-		} else {
-			key_out = ',';
-		}
-	} else if (key == SDLK_SLASH) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '?';
-		} else {
-			key_out = '/';
-		}
-	} else if (key == SDLK_SEMICOLON) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = ':';
-		} else {
-			key_out = ';';
-		}
-	} else if (key == SDLK_QUOTE) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '\"';
-		} else {
-			key_out = '\'';
-		}
-	} else if (key == SDLK_LEFTBRACKET) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '{';
-		} else {
-			key_out = '[';
-		}
-	} else if (key == SDLK_RIGHTBRACKET) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '}';
-		} else {
-			key_out = ']';
-		}
-	} else if (key == SDLK_BACKSLASH) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '|';
-		} else {
-			key_out = '\\';
-		}
-	} else if (key == SDLK_MINUS) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '_';
-		} else {
-			key_out = '-';
-		}
-	} else if (key == SDLK_EQUALS) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '+';
-		} else {
-			key_out = '=';
-		}
-	} else if (key == SDLK_BACKQUOTE) {
-		if (modstate & KMOD_SHIFT) {
-			key_out = '~';
-		} else {
-			key_out = '`';
-		}
-	} else if (key == SDLK_1 && modstate & KMOD_SHIFT) {
-		key_out = '!';
-	} else if (key == SDLK_2 && modstate & KMOD_SHIFT) {
-		key_out = '@';
-	} else if (key == SDLK_3 && modstate & KMOD_SHIFT) {
-		key_out = '#';
-	} else if (key == SDLK_4 && modstate & KMOD_SHIFT) {
-		key_out = '$';
-	} else if (key == SDLK_5 && modstate & KMOD_SHIFT) {
-		key_out = '%';
-	} else if (key == SDLK_6 && modstate & KMOD_SHIFT) {
-		key_out = '^';
-	} else if (key == SDLK_7 && modstate & KMOD_SHIFT) {
-		key_out = '&';
-	} else if (key == SDLK_8 && modstate & KMOD_SHIFT) {
-		key_out = '*';
-	} else if (key == SDLK_9 && modstate & KMOD_SHIFT) {
-		key_out = '(';
-	} else if (key == SDLK_0 && modstate & KMOD_SHIFT) {
-		key_out = ')';
-	} else if (key == SDLK_KP_0) {
-		key_out = '0';
-	} else if (key == SDLK_KP_1) {
-		key_out = '1';
-	} else if (key == SDLK_KP_2) {
-		key_out = '2';
-	} else if (key == SDLK_KP_3) {
-		key_out = '3';
-	} else if (key == SDLK_KP_4) {
-		key_out = '4';
-	} else if (key == SDLK_KP_5) {
-		key_out = '5';
-	} else if (key == SDLK_KP_6) {
-		key_out = '6';
-	} else if (key == SDLK_KP_7) {
-		key_out = '7';
-	} else if (key == SDLK_KP_8) {
-		key_out = '8';
-	} else if (key == SDLK_KP_9) {
-		key_out = '9';
-	} else if (key == SDLK_KP_MINUS) {
-		key_out = '-';
-	} else if (key == SDLK_KP_EQUALS) {
-		key_out = '=';
-	} else if (key == SDLK_KP_PLUS) {
-		key_out = '+';
-	} else if (key == SDLK_KP_DIVIDE) {
-		key_out = '/';
-	} else if (key == SDLK_KP_MULTIPLY) {
-		key_out = '*';
-	} else if (key == SDLK_KP_DECIMAL) {
-		key_out = '.';
 	} else if (key == SDLK_KP_ENTER) {
 		key_out = 0x0d;
 	} else {
 		key_out = -1;
 	}
 
-	key_input(key_out, 0);
+	if (key_out != -1) {
+		key_input(key_out, 0);
+	}
+}
+
+void do_text_input(char* text) {
+	if (*addr_isKeyboardOnScreen) {
+		if (strlen(text) == 1) {
+			key_input(text[0], 0);
+		}
+	}
 }
 
 void processEvent(SDL_Event *e) {
@@ -847,6 +745,9 @@ void processEvent(SDL_Event *e) {
 		}
 		case SDL_CONTROLLERAXISMOTION:
 			setUsingKeyboard(0);
+			return;
+		case SDL_TEXTINPUT:
+			do_text_input(e->text.text);
 			return;
 		case SDL_WINDOWEVENT:
 			if (e->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
@@ -1169,9 +1070,10 @@ void walk_acid_drop(void *comp) {
 		mov al, byte ptr [ecx + 0x120]	/* R2 */
 		test al, al
 		jne success
-		mov al, byte ptr [ecx + 0xc0]	/* L2 */
-		test al, al
-		jne success
+		// don't check nollie! that's used to center view and isn't used to acid drop!
+		//mov al, byte ptr [ecx + 0xc0]	/* L2 */
+		//test al, al
+		//jne success
 
 		pop ecx
 		pop eax
@@ -1373,6 +1275,15 @@ void patchInput() {
 
 	patchNop(addr_fmvunfocuspoll, 48);
 	patchCall(addr_fmvunfocuspoll, processEventsUnfocused);
+
+	// check fmv input more than once every 5 frames
+	patchNop(addr_fmvpollthrottle + 9, 6);
+
+	// change taunt slot one to be bound to 0x1f to clear up esc conflict
+	patchByte(addr_tauntslotone + 5, 0x1f);
+
+	// remove sleep before fmv plays
+	patchDWord(addr_fmvdelay + 4, 0);
 	
 	// fmv
 	/*patchNop(addr_fmvpoll, 41);

@@ -15,7 +15,7 @@
 
 #define VERSION_NUMBER_MAJOR 0
 #define VERSION_NUMBER_MINOR 11
-#define VERSION_NUMBER_FIX 2
+#define VERSION_NUMBER_FIX 3
 
 void *initAddr = NULL;
 

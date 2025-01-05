@@ -258,6 +258,10 @@ uint8_t __cdecl isPCWrapper(uint8_t *idk, uint8_t *script) {
 		}
 	}
 
+	if (usingPS2Controls && scriptcrc == 0x711b0bee) {
+		return 0;
+	}
+
 	return 1;
 }
 
