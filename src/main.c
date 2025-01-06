@@ -17,12 +17,18 @@
 #define VERSION_NUMBER_MINOR 11
 #define VERSION_NUMBER_FIX 3
 
+char configFile[1024];
+
 void *initAddr = NULL;
 
 void *addr_shuffle1;
 void *addr_shuffle2;
 void *addr_origrand;
 uint32_t addr_camera_lookat;
+uint32_t addr_aspyr_debug;
+uint32_t addr_aspyr_debug_skip_jump;
+uint32_t addr_their_PlayMovie;
+uint32_t addr_invertoffboardcam;
 
 uint8_t get_misc_offsets() {
 	uint8_t *shuffleAnchor = NULL;
@@ -30,6 +36,9 @@ uint8_t get_misc_offsets() {
 	uint8_t result = 1;
 	result &= patch_cache_pattern("53 e8 ?? ?? ?? ?? 8b 15 ?? ?? ?? ?? 52 8b f8 e8 ?? ?? ?? ?? 83 c4 08", &shuffleAnchor);
 	result &= patch_cache_pattern("f3 0f 5c cc f3 0f 5c d5 f3 0f 5c de 68", &addr_camera_lookat);
+	result &= patch_cache_pattern("?? ?? ?? ?? 00 00 8A 44 24 1B 84 C0", &addr_aspyr_debug_skip_jump);
+	result &= patch_cache_pattern("3D 00 08 00 00 89 44 24 20", &addr_aspyr_debug);
+	result &= patch_cache_pattern("F3 0F 59 C1 F3 0F 11 44 24 20 74 0A", &addr_invertoffboardcam);
 
 	if (result) {
 		addr_origrand = *(uint32_t *)(shuffleAnchor + 2) + shuffleAnchor + 6;
@@ -181,11 +190,47 @@ void patchPlaylistShuffle() {
 	patchCall(addr_shuffle2, our_random);
 }
 
+BOOL PlayMovie_wrapper(uint8_t* pParams, uint8_t* pScript) {
+
+	BOOL(__cdecl * play_movie)(uint8_t*, uint8_t*) = (void*)addr_their_PlayMovie;
+	uint32_t scriptcrc = 0;
+
+	if (pScript) {
+		scriptcrc = *(uint32_t*)(pScript + 0xd0);
+		if (scriptcrc == 0xAA37AEAE /*startup_loading_screen*/)
+			return TRUE;
+	}
+	return play_movie(pParams, pScript);
+}
+
+void patchIntroMovies() {
+	if (!getIniBool("Miscellaneous", "DisplayIntroMovies", 1, configFile)) {
+		//patchJmp((void*)0x0047DC00, PlayMovie_wrapper);
+		wrap_cfunc("PlayMovie", PlayMovie_wrapper, &addr_their_PlayMovie);
+	}
+}
+
+void patchStartupSpeed() {
+	// Null out mad.bik texture bugging from Aspyr.
+	// This is needless and creates needless overhead.
+	patchDWord((void*)(addr_aspyr_debug+1), 1);					// For loop from 2048 to 1.
+	patchJmp((void*)addr_aspyr_debug_skip_jump, (void*)(addr_aspyr_debug-5));	// Jump past entire check. Fail.
+}
+
+void patchOffboardCamera() {
+	if (!getIniBool("Miscellaneous", "DontInvertOffBoardCamera", 1, configFile)) {
+		patchNop((void*)addr_invertoffboardcam, 4);
+	}
+}
+
 void installPatches() {
 	patchWindow();
 	patchInput();
 	patchPlaylistShuffle();
 	patchCamera();
+	patchStartupSpeed();
+	patchIntroMovies();
+	patchOffboardCamera();
 	printf("installing script patches\n");
 	patchScriptHook();
 	printf("done\n");
@@ -202,7 +247,6 @@ void initPatch() {
 		*(exe + 1) = '\0';
 	}
 
-	char configFile[1024];
 	sprintf(configFile, "%s%s", executableDirectory, CONFIG_FILE_NAME);
 
 	int isDebug = getIniBool("Miscellaneous", "Debug", 0, configFile);
