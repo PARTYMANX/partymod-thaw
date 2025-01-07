@@ -28,7 +28,6 @@ uint32_t addr_camera_lookat;
 uint32_t addr_aspyr_debug;
 uint32_t addr_aspyr_debug_skip_jump;
 uint32_t addr_their_PlayMovie;
-uint32_t addr_invertoffboardcam;
 
 uint8_t get_misc_offsets() {
 	uint8_t *shuffleAnchor = NULL;
@@ -38,7 +37,6 @@ uint8_t get_misc_offsets() {
 	result &= patch_cache_pattern("f3 0f 5c cc f3 0f 5c d5 f3 0f 5c de 68", &addr_camera_lookat);
 	result &= patch_cache_pattern("?? ?? ?? ?? 00 00 8A 44 24 1B 84 C0", &addr_aspyr_debug_skip_jump);
 	result &= patch_cache_pattern("3D 00 08 00 00 89 44 24 20", &addr_aspyr_debug);
-	result &= patch_cache_pattern("F3 0F 59 C1 F3 0F 11 44 24 20 74 0A", &addr_invertoffboardcam);
 
 	if (result) {
 		addr_origrand = *(uint32_t *)(shuffleAnchor + 2) + shuffleAnchor + 6;
@@ -217,12 +215,6 @@ void patchStartupSpeed() {
 	patchJmp((void*)addr_aspyr_debug_skip_jump, (void*)(addr_aspyr_debug-5));	// Jump past entire check. Fail.
 }
 
-void patchOffboardCamera() {
-	if (!getIniBool("Miscellaneous", "DontInvertOffBoardCamera", 1, configFile)) {
-		patchNop((void*)addr_invertoffboardcam, 4);
-	}
-}
-
 void installPatches() {
 	patchWindow();
 	patchInput();
@@ -230,7 +222,6 @@ void installPatches() {
 	patchCamera();
 	patchStartupSpeed();
 	patchIntroMovies();
-	patchOffboardCamera();
 	printf("installing script patches\n");
 	patchScriptHook();
 	printf("done\n");
