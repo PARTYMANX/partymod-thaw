@@ -954,6 +954,7 @@ struct settings {
 
 	int ps2_controls;
 	int ui_controls;
+	int intromovies;
 };
 
 struct keybinds {
@@ -1118,6 +1119,7 @@ void defaultSettings() {
 	settings.fog = 0;
 	
 	settings.ps2_controls = 1;
+	settings.intromovies = 1;
 
 	keybinds.ollie = SDL_SCANCODE_KP_2;
 	keybinds.grab = SDL_SCANCODE_KP_6;
@@ -1206,6 +1208,7 @@ void loadSettings() {
 
 	settings.ps2_controls = getIniBool("Miscellaneous", "UsePS2Controls", 1, configFile);
 	settings.ui_controls = GetPrivateProfileInt("Miscellaneous", "UIControls", 1, configFile);
+	settings.intromovies = GetPrivateProfileInt("Miscellaneous", "DisplayIntroMovies", 1, configFile);
 
 	keybinds.ollie = GetPrivateProfileInt("Keybinds", "Ollie", SDL_SCANCODE_KP_2, configFile);
 	keybinds.grab = GetPrivateProfileInt("Keybinds", "Grab", SDL_SCANCODE_KP_6, configFile);
@@ -1283,6 +1286,7 @@ void saveSettings() {
 
 	writeIniBool("Miscellaneous", "UsePS2Controls", settings.ps2_controls, configFile);
 	writeIniInt("Miscellaneous", "UIControls", settings.ui_controls, configFile);
+	writeIniInt("Miscellaneous", "DisplayIntroMovies", settings.intromovies, configFile);
 
 	writeIniInt("Keybinds", "Ollie", keybinds.ollie, configFile);
 	writeIniInt("Keybinds", "Grab", keybinds.grab, configFile);
@@ -1889,6 +1893,7 @@ struct general_page {
 	pgui_control *ps2_controls;
 	pgui_control *ui_controls_label;
 	pgui_control *ui_controls;
+	pgui_control *intromovies;
 };
 
 struct general_page general_page;
@@ -2007,6 +2012,7 @@ void build_general_page(pgui_control *parent) {
 	general_page.ps2_controls = pgui_checkbox_create(8, 16, 128, 24, "Use PS2/360 Controls", misc_groupbox);
 	general_page.ui_controls_label = pgui_label_create(8, 16 + 28, 80, 16, "Menu Controls:", PGUI_LABEL_JUSTIFY_LEFT, misc_groupbox);
 	general_page.ui_controls = pgui_combobox_create(8 + 80, 16 + 24, 80, 24, uicontrol_options, 3, misc_groupbox);
+	general_page.intromovies = pgui_checkbox_create(8, (24 * 2) + 16, 128, 24, "Display Intro Movies", misc_groupbox);
 
 	pgui_checkbox_set_on_toggle(general_page.windowed, do_setting_checkbox, &(settings.windowed));
 	pgui_checkbox_set_on_toggle(general_page.borderless, do_setting_checkbox, &(settings.borderless));
@@ -2019,6 +2025,7 @@ void build_general_page(pgui_control *parent) {
 
 	pgui_checkbox_set_on_toggle(general_page.ps2_controls, do_setting_checkbox, &(settings.ps2_controls));
 	pgui_combobox_set_on_select(general_page.ui_controls, set_menu_combobox, &(settings.ui_controls));
+	pgui_checkbox_set_on_toggle(general_page.intromovies, do_setting_checkbox, &(settings.intromovies));
 
 	pgui_combobox_set_on_select(general_page.resolution_combobox, set_display_mode, NULL);
 	pgui_checkbox_set_on_toggle(general_page.custom_resolution, check_custom_resolution, NULL);
@@ -2095,6 +2102,7 @@ void update_general_page() {
 
 	pgui_checkbox_set_checked(general_page.ps2_controls, settings.ps2_controls);
 	pgui_combobox_set_selection(general_page.ui_controls, settings.ui_controls);
+	pgui_checkbox_set_checked(general_page.intromovies, settings.intromovies);
 }
 
 void callback_ok(pgui_control *control, void *data) {
