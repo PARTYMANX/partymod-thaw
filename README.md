@@ -4,6 +4,10 @@ The patch is designed to keep the game as original as possible, and leave its fi
 
 This patch was originally developed to provide input patches to be integrated into reTHAWed.  Thanks to the reTHAWed team (especially uzis and trxbail) for some assistance and inspiring this patch!
 
+## 🎉 PARTYMOD 🎉
+PARTYMOD is a series of patches that provide various fixes and modernizations for the THPS series and other games on their engines.
+[Other PARTYMOD Releases Available Here](https://partymod.newnet.city/)
+
 ### Features and Fixes
 * Replaced input system entirely with new, modern system using the SDL2 library
 * Improved window handling allowing for custom resolutions and configurable windowing
