@@ -1175,8 +1175,10 @@ void patchPs2Buttons() {
 	//patchByte((void *)(0x005da32c + 3), 0x01);
 
 	// lip jump?
-	patchByte((void *)(addr_r2l2_lip), 0x52);	// PUSH EBX
-	patchCall((void *)(addr_r2l2_lip + 1), lip_jump);
+	patchDWord((void*)(addr_r2l2_lip + 2), 0x100);
+	patchDWord((void*)(addr_r2l2_lip + 16), 0xa0);
+	patchByte((void *)(addr_r2l2_lip + 9), 0x85);	// JZ -> JNZ
+	patchByte((void *)(addr_r2l2_lip + 10), 0x0e);
 
 	// check side
 	//patchByte((void *)(0x005dad77 + 2), 0xa0);
