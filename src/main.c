@@ -15,7 +15,7 @@
 
 #define VERSION_NUMBER_MAJOR 0
 #define VERSION_NUMBER_MINOR 11
-#define VERSION_NUMBER_FIX 3
+#define VERSION_NUMBER_FIX 4
 
 char configFile[1024];
 
@@ -28,6 +28,9 @@ uint32_t addr_camera_lookat;
 uint32_t addr_aspyr_debug;
 uint32_t addr_aspyr_debug_skip_jump;
 uint32_t addr_their_PlayMovie;
+uint32_t addr_texture_display;
+uint32_t addr_movie_draw;
+uint32_t addr_orig_movie_draw;
 
 uint8_t get_misc_offsets() {
 	uint8_t *shuffleAnchor = NULL;
@@ -37,11 +40,14 @@ uint8_t get_misc_offsets() {
 	result &= patch_cache_pattern("f3 0f 5c cc f3 0f 5c d5 f3 0f 5c de 68", &addr_camera_lookat);
 	result &= patch_cache_pattern("?? ?? ?? ?? 00 00 8A 44 24 1B 84 C0", &addr_aspyr_debug_skip_jump);
 	result &= patch_cache_pattern("3D 00 08 00 00 89 44 24 20", &addr_aspyr_debug);
+	result &= patch_cache_pattern("8d 54 24 30 52 6a 02 6a 05 50", &addr_texture_display);
+	result &= patch_cache_pattern("e8 ?? ?? ?? ?? a1 ?? ?? ?? ?? 8b 48 08 8b 50 0c 83 c4 04", &addr_movie_draw);
 
 	if (result) {
 		addr_origrand = *(uint32_t *)(shuffleAnchor + 2) + shuffleAnchor + 6;
 		addr_shuffle1 = shuffleAnchor + 1;
 		addr_shuffle2 = shuffleAnchor + 15;
+		addr_orig_movie_draw = *(uint32_t *)(addr_movie_draw + 1) + addr_movie_draw + 5;
 	} else {
 		printf("FAILED TO FIND MISC OFFSETS\n");
 	}
@@ -208,6 +214,77 @@ void patchIntroMovies() {
 	}
 }
 
+uint8_t shouldFudgeCoords = 0;
+
+struct movieVertex {
+	float x, y, z, w;
+	//uint32_t color;
+	float u, v;
+};
+
+void __stdcall movie_drawPrim(IDirect3DDevice9 *dev, D3DPRIMITIVETYPE type, uint32_t numPrims, struct movieVertex *vertices, uint32_t stride) {
+	if (shouldFudgeCoords) {
+		uint32_t backbuffer_height = 0;
+		uint32_t backbuffer_width = 0;
+
+		getCurrentResolution(&backbuffer_width, &backbuffer_height);
+
+		//float targetAspect = (float)movie_width / (float)movie_height;
+		float targetAspect = 4.0f / 3.0f;	// while my programmer brain says "respect the original size!" the devs said "what if the credits were anamorphic 1:1"
+		float backbufferAspect = (float)backbuffer_width / (float)backbuffer_height;
+
+		float target_width = backbuffer_width;
+		float target_height = backbuffer_height;
+		float target_offset_x = 0.0f;
+		float target_offset_y = 0.0f;
+
+		if (backbufferAspect > targetAspect) {
+			target_width = (targetAspect / backbufferAspect) * backbuffer_width;
+			target_offset_x = (backbuffer_width - target_width) / 2;
+		}
+		else if (backbufferAspect < targetAspect) {
+			target_height = (backbufferAspect / targetAspect) * backbuffer_height;
+			target_offset_y = (backbuffer_height - target_height) / 2;
+		}
+
+		vertices[0].x = target_offset_x;
+		vertices[0].y = target_offset_y;
+
+		vertices[1].x = target_offset_x + target_width;
+		vertices[1].y = target_offset_y;
+
+		vertices[2].x = target_offset_x;
+		vertices[2].y = target_offset_y + target_height;
+
+		vertices[3].x = target_offset_x + target_width;
+		vertices[3].y = target_offset_y + target_height;
+
+		// this is really goofy, but this function is shared for getting the
+		// movie into the frame buffer render target, and for getting the frame
+		// buffer onto the screen, and we can't really target the function that
+		// does just one because of obfuscation, so just cancel out the second 
+		// fudge here
+		shouldFudgeCoords = 0;	
+	}
+
+	IDirect3DDevice9_DrawPrimitiveUP(dev, type, numPrims, vertices, stride);
+}
+
+void __cdecl drawMovieTexWrapper(void *bink) {
+	void (__cdecl *orig_draw_movie)(void *) = addr_orig_movie_draw;
+
+	shouldFudgeCoords = 1;
+
+	orig_draw_movie(bink);
+}
+
+void patchMovieBlackBars() {
+	patchNop(addr_texture_display + 10, 6);
+	patchCall(addr_texture_display + 10, movie_drawPrim);
+
+	patchCall(addr_movie_draw, drawMovieTexWrapper);
+}
+
 void patchStartupSpeed() {
 	// Null out mad.bik texture bugging from Aspyr.
 	// This is needless and creates needless overhead.
@@ -222,6 +299,7 @@ void installPatches() {
 	patchCamera();
 	patchStartupSpeed();
 	patchIntroMovies();
+	patchMovieBlackBars();
 	printf("installing script patches\n");
 	patchScriptHook();
 	printf("done\n");

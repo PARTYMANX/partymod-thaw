@@ -2012,7 +2012,7 @@ void build_general_page(pgui_control *parent) {
 	general_page.ps2_controls = pgui_checkbox_create(8, 16, 128, 24, "Use PS2/360 Controls", misc_groupbox);
 	general_page.ui_controls_label = pgui_label_create(8, 16 + 28, 80, 16, "Menu Controls:", PGUI_LABEL_JUSTIFY_LEFT, misc_groupbox);
 	general_page.ui_controls = pgui_combobox_create(8 + 80, 16 + 24, 80, 24, uicontrol_options, 3, misc_groupbox);
-	general_page.intromovies = pgui_checkbox_create(8, (24 * 2) + 16, 128, 24, "Display Intro Movies", misc_groupbox);
+	general_page.intromovies = pgui_checkbox_create(8, (24 * 2) + 16, 128, 24, "Play Intro Movies", misc_groupbox);
 
 	pgui_checkbox_set_on_toggle(general_page.windowed, do_setting_checkbox, &(settings.windowed));
 	pgui_checkbox_set_on_toggle(general_page.borderless, do_setting_checkbox, &(settings.borderless));

@@ -197,6 +197,16 @@ void createSDLWindow() {
 	SDL_ShowCursor(0);
 }
 
+void getCurrentResolution(int *width, int *height) {
+	if (width) {
+		*width = resX;
+	}
+
+	if (height) {
+		*height = resY;
+	}
+}
+
 void writeConfigValues() {
 	*antialiasing = graphics_settings.antialiasing;
 	*hq_shadows = graphics_settings.hq_shadows;

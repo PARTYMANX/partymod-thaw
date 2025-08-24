@@ -116,4 +116,6 @@ void dumpSettings();
 void patchWindow();
 void patchLoadConfig();
 
+void getCurrentResolution(int *width, int *height);
+
 #endif
