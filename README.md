@@ -2,8 +2,6 @@
 This is a patch for THAW 1.01 to improve its input handling as well as smooth out a few other parts of the PC port.
 The patch is designed to keep the game as original as possible, and leave its files unmodified.
 
-This patch was originally developed to provide input patches to be integrated into reTHAWed.  Thanks to the reTHAWed team (especially uzis and trxbail) for some assistance and inspiring this patch!
-
 ## 🎉 PARTYMOD 🎉
 PARTYMOD is a series of patches that provide various fixes and modernizations for the THPS series and other games on their engines.
 [Other PARTYMOD Releases Available Here](https://partymod.newnet.city/)
